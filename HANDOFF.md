@@ -15,14 +15,22 @@
 
 ---
 
-## 了解项目（按顺序读）
+## 接手时的状态
+
+**首先**：`git pull` 拉取最新代码。
+
+**然后按顺序读**：
 
 | 文件 | 作用 |
 |------|------|
-| `PRD.md` | 这是什么软件、有什么功能 |
-| `PROGRESS_BOARD.md` | 当前做到哪了、下一步做什么 |
-| `TECH_DECISIONS.md` | 为什么选这个技术方案 |
-| `SESSION_REPORT.md` | Cursor 最近一次会话做了什么 |
+| `HANDOFF.md` | 这个文件（只读一次，了解工作模式） |
+| `PRD.md` | 软件需求（只读一次） |
+| `PROGRESS_BOARD.md` | **当前进度**（每次必读） |
+| `SESSION_REPORT.md` | 最近一次做了什么（每次必读） |
+| `TECH_DECISIONS.md` | 技术决策（需要时查） |
+
+**HANDOFF.md 本身不需要每次更新**——它是工作模式的说明书。
+真正要每次同步的是 `PROGRESS_BOARD.md` 和 `SESSION_REPORT.md`。
 
 ---
 
