@@ -1,0 +1,26 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+
+# Node
+node_modules/
+
+# 数据文件（本地项目数据不上传）
+signage-app/backend/data/*.json
+
+# 系统文件
+.DS_Store
+Thumbs.db
+*.log
+
+# IDE
+.vscode/
+.idea/
+
+# 打包产物
+build/
+*.exe

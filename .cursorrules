@@ -1,0 +1,37 @@
+# FindWay Agent Cursor 开发规则
+
+你正在开发"FindWay Agent"——建筑导视标识设计AI助手桌面应用。
+技术栈：Python FastAPI 后端 + React Vite 前端 + 本地JSON存储。
+
+## 每次对话开始（精简步骤，省上下文）
+
+1. 读 `PROGRESS_BOARD.md` → 找 `⬜` 状态的第一个任务
+2. 读 `SESSION_REPORT.md` → 只看最后一条报告
+3. **不需要读PRD全文**（除非你第一次进项目）
+
+## 每次对话结束
+
+1. 更新 `PROGRESS_BOARD.md`：完成的任务 `⬜→✅`
+2. 在 `SESSION_REPORT.md` 末尾追加报告（格式见文件内模板）
+
+## 关键路径
+
+- 后端：`signage-app/backend/`，入口 `main.py`
+- 前端：`signage-app/frontend/`，入口 `src/main.jsx`
+- 数据：`signage-app/backend/data/`（JSON文件）
+- API端口：后端 8765，前端 5173
+
+## 启动方式
+
+双击 `signage-app/start.bat`，或：
+```
+venv\Scripts\python.exe backend\main.py
+cd frontend && node_modules\.bin\vite.cmd --host
+```
+
+## 代码风格
+
+- 中文注释
+- API用Pydantic校验
+- 前端页覆盖Loading/Empty/Error三态
+- fetch 加10秒超时

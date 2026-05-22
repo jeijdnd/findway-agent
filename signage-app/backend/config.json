@@ -1,0 +1,33 @@
+{
+  "modules": {
+    "project_matching": true,
+    "list_compare": true,
+    "cad_assist": true,
+    "spec_query": false,
+    "master_library": true
+  },
+  "workflow": {
+    "new_project_steps": [
+      "collect_info",
+      "match_old_project",
+      "generate_list_v1",
+      "replace_frame",
+      "remind_list_v2"
+    ]
+  },
+  "matching_rules": {
+    "type_weight": 0.5,
+    "structure_weight": 0.3,
+    "time_weight": 0.2,
+    "max_results": 5
+  },
+  "list_template": {
+    "columns": ["编号", "名称", "参考尺寸", "参考材质", "是否带电", "单位", "数量", "备注"]
+  },
+  "llm": {
+    "provider": "openai_compatible",
+    "api_key": "从环境变量 LLM_API_KEY 读取",
+    "base_url": "https://api.openai.com/v1",
+    "model": "gpt-4o-mini"
+  }
+}
