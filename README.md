@@ -28,6 +28,7 @@
 | `.cursorrules` | Cursor AI规则 | 自动加载，不需手动读 |
 | `WAKEUP.md` | WorkBuddy快速唤醒 | 新对话时粘贴 |
 | `HANDOFF.md` | PM交接文档 | 换AI接管项目时读 |
+| `PROGRESS_SUMMARY.md` | **PM当前状态总览** | 新PM接手必读 |
 
 ## 开发角色
 
