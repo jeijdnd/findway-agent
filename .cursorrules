@@ -5,14 +5,22 @@
 
 ## 每次对话开始（精简步骤，省上下文）
 
-1. 读 `PROGRESS_BOARD.md` → 找 `⬜` 状态的第一个任务
-2. 读 `SESSION_REPORT.md` → 只看最后一条报告
-3. **不需要读PRD全文**（除非你第一次进项目）
+1. **先拉取最新代码**：终端执行 `git pull`（如果另一台电脑有更新）
+2. 读 `PROGRESS_BOARD.md` → 找 `⬜` 状态的第一个任务
+3. 读 `SESSION_REPORT.md` → 只看最后一条报告
+4. **不需要读PRD全文**（除非你第一次进项目）
 
-## 每次对话结束
+## 每次对话结束（必须执行）
 
 1. 更新 `PROGRESS_BOARD.md`：完成的任务 `⬜→✅`
-2. 在 `SESSION_REPORT.md` 末尾追加报告（格式见文件内模板）
+2. 在 `SESSION_REPORT.md` 末尾追加报告
+3. **提交并推送到GitHub**：终端依次执行
+   ```
+   git add -A
+   git commit -m "Phase X: [做了什么]"
+   git push
+   ```
+4. commit message 格式：`Phase X: 完成xxx功能`，用中文
 
 ## 关键路径
 

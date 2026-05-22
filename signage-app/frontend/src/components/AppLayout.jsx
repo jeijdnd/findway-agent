@@ -3,6 +3,7 @@ import ChatPanel from './ChatPanel'
 import Dashboard from '../pages/Dashboard'
 import Matching from '../pages/Matching'
 import Compare from '../pages/Compare'
+import Settings from '../pages/Settings'
 import '../App.css'
 
 function AppLayout() {
@@ -31,7 +32,7 @@ function AppLayout() {
       case 'compare':
         return <Compare key={refreshKey} />
       case 'settings':
-        return <div className="empty-state"><h2>设置</h2><p>功能开发中...</p></div>
+        return <Settings key={refreshKey} />
       default:
         return <Dashboard key={refreshKey} />
     }

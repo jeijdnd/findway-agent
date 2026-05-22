@@ -217,3 +217,64 @@ PROGRESS_BOARD.md 中已标记完成的任务：
 - [x] 3.2 差异对比引擎
 - [x] 3.3 对比API+导出
 - [x] 3.4 对比页面
+
+---
+
+## 会话11：Phase 4 开发者控制台
+
+| 字段 | 内容 |
+|------|------|
+| 日期 | 2026-05-22 |
+| 所属Phase | Phase 4 |
+| 完成任务ID | 4.1, 4.2 |
+| 状态 | ✅完成 |
+
+### 新增文件
+- `signage-app/backend/api/settings.py` — 设置管理API，提供配置读写、热重载、重置功能
+- `signage-app/frontend/src/pages/Settings.jsx` — 开发者控制台页面，包含模块开关、规则滑块、模板编辑、LLM配置
+
+### 修改文件
+- `signage-app/backend/main.py` — 注册settings路由
+- `signage-app/frontend/src/components/AppLayout.jsx` — 导入Settings组件，替换设置页面占位符
+- `PROGRESS_BOARD.md` — Phase 4标记为完成
+
+### 实现的功能
+1. **配置读写API**：
+   - GET /api/settings — 获取完整配置
+   - PUT /api/settings — 部分更新配置（支持模块开关、匹配规则、清单模板、LLM配置）
+   - POST /api/settings/reload — 热重载配置（从磁盘重新读取）
+   - POST /api/settings/reset — 重置为默认配置
+
+2. **配置校验**：
+   - 匹配规则权重之和必须为1.0，否则返回400错误
+   - 支持深度合并更新，只修改传入的字段
+
+3. **开发者控制台页面**：
+   - **模块开关**：可视化切换各功能模块（项目匹配、清单对比、CAD辅助等）
+   - **匹配规则**：滑块调整类型/结构/时间权重，实时显示权重总和
+   - **工作流程**：展示新项目工作流程步骤
+   - **清单模板**：动态添加/删除清单列
+   - **LLM配置**：配置Provider、API Key、Base URL、模型
+
+4. **UI交互**：
+   - 保存状态反馈（成功/失败提示）
+   - 热重载和重置默认功能
+   - Loading/Empty/Error三态覆盖
+
+### 修复的Bug
+1. 无
+
+### 当前问题
+|| 问题 | 影响 | 需PM介入？ |
+||------|------|-----------|
+| 无 | — | — |
+
+### 下一步建议
+1. 测试配置API：通过curl或浏览器测试配置的读写和校验
+2. 测试前端控制台：验证模块开关、规则滑块、模板编辑功能
+3. 开始Phase 5的CAD辅助功能
+
+### 进度更新
+PROGRESS_BOARD.md 中已标记完成的任务：
+- [x] 4.1 配置API+热重载
+- [x] 4.2 控制台页面
