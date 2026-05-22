@@ -26,7 +26,8 @@
 | `SESSION_REPORT.md` | 会话进度报告 | 了解上次做了什么 |
 | `TECH_DECISIONS.md` | 技术决策记录 | 想了解为什么这样设计 |
 | `.cursorrules` | Cursor AI规则 | 自动加载，不需手动读 |
-| `CURSOR_PHASE*.md` | 各阶段开发指令 | Cursor对话时引用 |
+| `WAKEUP.md` | WorkBuddy快速唤醒 | 新对话时粘贴 |
+| `HANDOFF.md` | PM交接文档 | 换AI接管项目时读 |
 
 ## 开发角色
 
