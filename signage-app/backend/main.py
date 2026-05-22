@@ -12,6 +12,7 @@ from backend.api.chat import router as chat_router
 from backend.api.matching import router as matching_router
 from backend.api.compare import router as compare_router
 from backend.api.settings import router as settings_router
+from backend.api.cad import router as cad_router
 
 app = FastAPI(
     title="FindWay Agent API",
@@ -34,6 +35,7 @@ app.include_router(chat_router)
 app.include_router(matching_router)
 app.include_router(compare_router)
 app.include_router(settings_router)
+app.include_router(cad_router)
 
 @app.get("/api/health")
 async def health_check():

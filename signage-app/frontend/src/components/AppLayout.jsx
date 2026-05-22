@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import ChatPanel from './ChatPanel'
 import Dashboard from '../pages/Dashboard'
 import Matching from '../pages/Matching'
@@ -33,6 +33,8 @@ function AppLayout() {
         return <Compare key={refreshKey} />
       case 'settings':
         return <Settings key={refreshKey} />
+      case 'cad':
+        return <CADPanel key={refreshKey} />
       default:
         return <Dashboard key={refreshKey} />
     }
@@ -69,6 +71,12 @@ function AppLayout() {
             onClick={() => setActiveTab('settings')}
           >
             设置
+          </button>
+          <button
+            className={`panel-tab ${activeTab === 'cad' ? 'active' : ''}`}
+            onClick={() => setActiveTab('cad')}
+          >
+            CAD辅助
           </button>
         </div>
         <div className="panel-content">
