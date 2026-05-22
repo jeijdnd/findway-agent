@@ -278,3 +278,60 @@ PROGRESS_BOARD.md 中已标记完成的任务：
 PROGRESS_BOARD.md 中已标记完成的任务：
 - [x] 4.1 配置API+热重载
 - [x] 4.2 控制台页面
+
+---
+
+## 会话12：Phase 5 CAD辅助
+
+| 字段 | 内容 |
+|------|------|
+| 日期 | 2026-05-22 |
+| 所属Phase | Phase 5 |
+| 完成任务ID | 5.1, 5.2 |
+| 状态 | ✅完成 |
+
+### 新增文件
+- `signage-app/backend/api/cad.py` — CAD文件API，提供DWG/DXF文件读取和预览功能
+- `signage-app/frontend/src/components/AppLayout.jsx` — 添加CADPanel组件，实现文件路径输入和信息展示
+
+### 修改文件
+- `signage-app/backend/engine/cad_engine.py` — 重写为完整的CAD引擎，实现文字提取、图块统计、图层列表功能
+- `signage-app/backend/main.py` — 注册cad路由
+- `PROGRESS_BOARD.md` — Phase 5标记为完成
+
+### 实现的功能
+1. **CAD引擎（cad_engine.py）**：
+   - `extract_frame_texts()`：提取DWG中所有MTEXT和TEXT实体的文字内容，返回文字、图层、坐标
+   - `extract_blocks()`：提取所有BLOCK定义和INSERT引用，统计引用次数≥1的块
+   - `list_layers()`：返回所有图层名、状态（on/off/frozen/locked）
+   - `get_all_info()`：一次性获取所有信息（文字、图块、图层）
+
+2. **CAD API（cad.py）**：
+   - POST /api/cad/info：获取DWG/DXF文件信息（文字+图块+图层）
+   - POST /api/cad/preview：预览图框替换效果（只读，不修改文件）
+   - 支持DWG/DXF格式，文件路径验证，错误处理
+
+3. **前端CAD面板（AppLayout.jsx中的CADPanel组件）**：
+   - 文件路径输入框 + "读取信息"按钮
+   - 文字内容表格（文字、图层、坐标）
+   - 图块列表表格（块名、图层、数量）
+   - 图层列表表格（图层名、状态）
+   - Loading/Empty/Error三态处理
+
+### 修复的Bug
+1. 无
+
+### 当前问题
+|| 问题 | 影响 | 需PM介入？ |
+||------|------|-----------|
+|| 需要测试DWG文件读取 | 需要实际DWG/DXF文件测试 | 否 |
+
+### 下一步建议
+1. 测试CAD功能：准备DWG/DXF文件测试文字提取、图块统计、图层列表
+2. 测试预览替换功能：验证文字替换预览是否正确
+3. 开始Phase 6的打包发布功能
+
+### 进度更新
+PROGRESS_BOARD.md 中已标记完成的任务：
+- [x] 5.1 DWG读取引擎
+- [x] 5.2 图框API
