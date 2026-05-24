@@ -1,7 +1,7 @@
-"""
-旧项目匹配页面
-提供搜索、扫描和预览旧项目功能
-"""
+/**
+ * 旧项目匹配页面
+ * 提供搜索、扫描和预览旧项目功能
+ */
 import React, { useState, useEffect } from 'react'
 
 function Matching() {

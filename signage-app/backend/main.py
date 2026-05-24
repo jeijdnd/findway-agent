@@ -4,8 +4,11 @@ FastAPI应用，提供API服务
 """
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, HTMLResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 import uvicorn
+import os
+from pathlib import Path
 
 from backend.api.projects import router as projects_router
 from backend.api.chat import router as chat_router
@@ -20,14 +23,19 @@ app = FastAPI(
     version="0.1.0"
 )
 
-# CORS只允许前端开发服务器
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# 检测是否是生产模式（前端dist目录存在）
+frontend_dist = Path(__file__).parent.parent / "frontend" / "dist"
+is_production = frontend_dist.exists() and (frontend_dist / "index.html").exists()
+
+# CORS只允许前端开发服务器（开发模式）
+if not is_production:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["http://localhost:5173"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
 # 注册路由
 app.include_router(projects_router)
@@ -37,10 +45,35 @@ app.include_router(compare_router)
 app.include_router(settings_router)
 app.include_router(cad_router)
 
+# 生产模式：添加静态文件服务
+if is_production:
+    # 挂载静态文件目录
+    app.mount("/assets", StaticFiles(directory=frontend_dist / "assets"), name="static")
+    
+    # SPA路由：所有非API请求都返回index.html
+    @app.get("/{full_path:path}")
+    async def serve_spa(full_path: str):
+        """SPA路由处理"""
+        # 如果是API路径，不处理
+        if full_path.startswith("api/"):
+            raise HTTPException(status_code=404, detail="API endpoint not found")
+        
+        # 尝试返回请求的文件
+        file_path = frontend_dist / full_path
+        if file_path.is_file():
+            return FileResponse(file_path)
+        
+        # 否则返回index.html（SPA路由）
+        return FileResponse(frontend_dist / "index.html")
+
 @app.get("/api/health")
 async def health_check():
     """健康检查接口"""
-    return {"status": "ok", "message": "FindWay Agent API运行正常"}
+    return {
+        "status": "ok", 
+        "message": "FindWay Agent API运行正常",
+        "mode": "production" if is_production else "development"
+    }
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request, exc):

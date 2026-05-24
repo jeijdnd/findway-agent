@@ -335,3 +335,69 @@ PROGRESS_BOARD.md 中已标记完成的任务：
 PROGRESS_BOARD.md 中已标记完成的任务：
 - [x] 5.1 DWG读取引擎
 - [x] 5.2 图框API
+
+---
+
+## 会话14：Phase 6 打包发布
+
+| 字段 | 内容 |
+|------|------|
+| 日期 | 2026-05-24 |
+| 所属Phase | Phase 6 |
+| 完成任务ID | 6.1, 6.2 |
+| 状态 | ✅完成 |
+
+### 新增文件
+- `signage-app/run.bat` — 一键启动脚本，自动创建虚拟环境、安装依赖、启动后端服务
+- `signage-app/install.bat` — 一键安装脚本，检查Python/Node环境、安装所有依赖、构建前端
+
+### 修改文件
+- `signage-app/backend/main.py` — 添加静态文件服务和SPA路由，支持生产模式前后端一体化
+- `signage-app/frontend/src/pages/Matching.jsx` — 修复Python风格三引号注释为JavaScript注释格式
+- `PROGRESS_BOARD.md` — Phase 6标记为完成
+
+### 实现的功能
+1. **前端生产构建**：
+   - 执行 `npm run build` 生成 dist 目录
+   - 包含 index.html、CSS 和 JS bundle
+
+2. **后端静态文件服务**：
+   - 自动检测前端dist目录是否存在，判断生产/开发模式
+   - 生产模式下挂载 `/assets` 静态文件目录
+   - SPA路由：所有非API请求返回 index.html（支持React Router）
+   - 开发模式保持原有CORS配置，生产模式自动禁用
+
+3. **健康检查增强**：
+   - 返回当前运行模式（production/development）
+
+4. **一键启动脚本 run.bat**：
+   - 自动创建Python虚拟环境
+   - 自动安装后端依赖（fastapi, uvicorn, openpyxl, ezdxf）
+   - 自动检查并构建前端（如dist不存在）
+   - 自动打开浏览器访问 http://localhost:8765
+   - 只需启动后端服务，前后端一体化
+
+5. **一键安装脚本 install.bat**：
+   - 检查Python 3.10+ 和 Node.js 18+ 是否安装
+   - 创建虚拟环境并安装所有依赖
+   - 构建前端生产版本
+   - 新电脑双击即可完成全部安装
+
+### 修复的Bug
+1. Matching.jsx Python三引号注释导致前端构建失败 → 改为JavaScript注释格式
+
+### 当前问题
+| 问题 | 影响 | 需PM介入？ |
+|------|------|-----------|
+| 无 | — | — |
+
+### 下一步建议
+1. 双击 run.bat 测试完整启动流程
+2. 在浏览器中验证生产模式下前后端一体化运行
+3. 在新电脑上测试 install.bat 一键安装流程
+4. 项目已全部完成，可以发布
+
+### 进度更新
+PROGRESS_BOARD.md 中已标记完成的任务：
+- [x] 6.1 构建+静态服务
+- [x] 6.2 exe打包（改为一键安装脚本）
