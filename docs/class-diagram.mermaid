@@ -1,0 +1,234 @@
+classDiagram
+    %% ===== 配置模型 =====
+    class ApiConfig {
+        +str id
+        +str name
+        +str provider
+        +str base_url
+        +str api_key
+        +str model
+        +bool enabled
+        +str purpose
+    }
+
+    class TaskMapping {
+        +str creative
+        +str spec_query
+        +str general
+        +str compare
+        +str matching
+    }
+
+    class LLMConfig {
+        +List~ApiConfig~ apis
+        +TaskMapping task_mapping
+        +str default_api
+    }
+
+    class WatchDirectory {
+        +str path
+        +bool auto_scan
+        +bool notify_new
+        +str status
+        +int found_count
+        +str last_scan
+    }
+
+    class MonitorConfig {
+        +List~WatchDirectory~ directories
+        +bool scan_on_startup
+        +bool notify_new_folder
+    }
+
+    class PlatformConfig {
+        +bool enabled
+        +str base_url
+        +str api_key
+        +int sync_interval_minutes
+    }
+
+    %% ===== 项目模型 =====
+    class ProjectResponse {
+        +str id
+        +str name
+        +str project_type
+        +List~str~ buildings
+        +str notes
+        +str stage
+        +str created_at
+        +str updated_at
+        +str source
+        +str source_path
+    }
+
+    class ProjectCreate {
+        +str name
+        +str project_type
+        +List~str~ buildings
+        +str notes
+        +str source
+        +str source_path
+    }
+
+    class DiscoveredProject {
+        +str folder_name
+        +str folder_path
+        +str project_type
+        +List~str~ matched_files
+        +float confidence
+        +str parent_dir_id
+    }
+
+    %% ===== 对话模型 =====
+    class ChatRequest {
+        +str message
+        +Optional~str~ project_id
+        +Optional~str~ api_config_id
+        +List~ChatMessage~ history
+    }
+
+    class ChatMessage {
+        +str role
+        +str content
+        +str timestamp
+    }
+
+    class StreamEvent {
+        +str type
+        +str content
+        +Optional~dict~ metadata
+    }
+
+    class ChatResponse {
+        +str reply
+        +Optional~str~ action
+        +Optional~dict~ data
+    }
+
+    %% ===== WPS模型 =====
+    class WpsSheetData {
+        +str source
+        +List~List~ raw_rows
+        +List~str~ raw_headers
+        +int row_count
+        +int col_count
+    }
+
+    class ColumnMapping {
+        +str raw_column
+        +str standard_column
+        +float confidence
+    }
+
+    class WpsMappingResult {
+        +List~ColumnMapping~ mappings
+        +List~List~ mapped_rows
+        +List~str~ unmapped_columns
+        +List~str~ missing_standard_columns
+    }
+
+    class WpsGenerateRequest {
+        +List~List~ raw_data
+        +List~ColumnMapping~ mappings
+        +Optional~str~ project_id
+    }
+
+    %% ===== 平台模型 =====
+    class PlatformProject {
+        +str platform_id
+        +str name
+        +str project_type
+        +str buildings
+        +str assignee
+        +str assign_date
+    }
+
+    class PlatformSyncResult {
+        +int new_count
+        +int updated_count
+        +List~PlatformProject~ new_projects
+        +str synced_at
+    }
+
+    %% ===== 服务类 =====
+    class LLMEngine {
+        -List~ApiConfig~ _api_configs
+        -TaskMapping _task_mapping
+        -str _default_api
+        +__init__(config: dict)
+        +get_active_configs() List~ApiConfig~
+        +get_config_by_id(id: str) ApiConfig
+        +chat_stream(message, history, api_config_id) AsyncGenerator~StreamEvent~
+        +chat(message, history, api_config_id) ChatResponse
+        +infer_intent(message: str) str
+        +auto_select_model(intent: str) ApiConfig
+        +map_wps_columns(raw_headers: list, standard_columns: list) WpsMappingResult
+        +test_connection(api_config: ApiConfig) bool
+    }
+
+    class ScannerService {
+        -List~WatchDirectory~ _directories
+        -List~DiscoveredProject~ _discovered
+        +__init__(config: dict)
+        +add_directory(path: str) WatchDirectory
+        +remove_directory(path: str) bool
+        +get_directories() List~WatchDirectory~
+        +scan_all() List~DiscoveredProject~
+        +scan_directory(path: str) List~DiscoveredProject~
+        -is_project_folder(path: str) tuple~bool, List~
+        -extract_project_type(folder_name: str, files: list) str
+        +get_all_discovered() List~DiscoveredProject~
+        +auto_register(project_ids: list) int
+        -save_discovered()
+        -load_discovered()
+    }
+
+    class WPSService {
+        +__init__()
+        +connect_wps(prog_id: str) bool
+        +read_active_sheet() WpsSheetData
+        +read_file(file_path: str) WpsSheetData
+        +is_wps_running() bool
+        +get_open_workbooks() List~str~
+        +write_back(file_path: str, data: list) bool
+        -_com_read(application) WpsSheetData
+        -_openpyxl_read(file_path: str) WpsSheetData
+    }
+
+    class PlatformService {
+        -str _base_url
+        -str _api_key
+        -bool _enabled
+        +__init__(config: dict)
+        +fetch_new_projects() List~PlatformProject~
+        +sync_projects() PlatformSyncResult
+        +is_connected() bool
+        +manual_import(data: list) PlatformSyncResult
+    }
+
+    %% ===== 关系 =====
+    LLMConfig "1" *-- "0..*" ApiConfig : apis
+    LLMConfig "1" *-- "1" TaskMapping : task_mapping
+    MonitorConfig "1" *-- "0..*" WatchDirectory : directories
+
+    LLMEngine ..> ApiConfig : uses
+    LLMEngine ..> StreamEvent : yields
+    LLMEngine ..> ChatResponse : returns
+    LLMEngine ..> WpsMappingResult : produces
+
+    ScannerService ..> DiscoveredProject : produces
+    ScannerService ..> WatchDirectory : manages
+
+    WPSService ..> WpsSheetData : produces
+    WPSService ..> LLMEngine : delegates mapping
+
+    PlatformService ..> PlatformProject : produces
+    PlatformService ..> PlatformSyncResult : returns
+
+    DiscoveredProject ..> ProjectResponse : auto-register
+
+    WpsMappingResult "1" *-- "0..*" ColumnMapping : contains
+    PlatformSyncResult "1" *-- "0..*" PlatformProject : new_projects
+
+    ChatRequest ..> ChatMessage : history
+    ChatRequest ..> ApiConfig : references

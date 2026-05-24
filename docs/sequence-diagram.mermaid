@@ -1,0 +1,108 @@
+sequenceDiagram
+    %% ===== Electron 启动流程 =====
+    participant User as 👤 用户
+    participant Main as ⚡ Electron Main
+    participant Py as 🐍 Python Backend
+    participant Win as 🖥️ BrowserWindow
+    participant React as ⚛️ React 前端
+
+    User->>Main: 双击桌面图标启动
+    Main->>Main: app.on('ready')
+    Main->>Main: 创建系统托盘 (Tray)
+    Main->>Main: 读取窗口记忆 (electron-store)
+
+    Main->>Py: child_process.spawn('python', ['backend/main.py'])
+    Note over Main,Py: env: PORT=8765, FINDWAY_HOME=...
+
+    loop 健康检查 (最多30次, 间隔500ms)
+        Main->>Py: GET http://127.0.0.1:8765/api/health
+        alt 响应 200
+            Py-->>Main: {"status":"ok", "mode":"development"}
+        else 连接拒绝
+            Main->>Main: 等待 500ms 重试
+        end
+    end
+
+    alt 后端启动成功
+        Main->>Win: new BrowserWindow({x, y, width, height})
+        Main->>Win: preload.js 注入 electronAPI
+
+        alt 开发模式 (NODE_ENV=development)
+            Win->>React: loadURL('http://localhost:5173')
+            React->>React: Vite HMR 热更新就绪
+        else 生产模式
+            Win->>React: loadURL('http://127.0.0.1:8765')
+            Py->>Win: 返回静态文件 index.html
+        end
+
+        React->>Py: GET /api/health
+        Py-->>React: {"status":"ok"}
+        React->>Py: GET /api/chat/models
+        Py-->>React: [{id, name, model, enabled}, ...]
+        React->>React: 渲染主界面 + 模型列表
+        Win-->>User: ✅ 桌面窗口就绪
+
+    else 后端启动超时
+        Main->>Win: dialog.showErrorBox('启动失败')
+        Win-->>User: ❌ "Python 后端启动失败，请检查环境"
+    end
+
+    %% ===== LLM 流式对话 =====
+    rect rgb(240, 253, 244)
+        Note over User,React: ═══ LLM 流式对话 ═══
+
+        User->>React: 输入 "帮我创建一个学校项目"
+        React->>React: 追加 user message 到聊天列表
+        React->>React: 追加空 assistant 气泡 (占位)
+
+        React->>Py: POST /api/chat/stream
+        Note over React,Py: Body: {message, history, api_config_id}
+
+        Py->>Py: LLMEngine.chat_stream()
+        Py->>Py: 获取 api_config (base_url, api_key, model)
+        Py->>Py: 构建 messages = [system_prompt, ...history, user_msg]
+
+        Py->>Py: AsyncOpenAI(api_key, base_url).chat.completions.create(stream=True)
+
+        loop 流式 token 推送
+            Py-->>React: SSE data: {"type":"token","content":"好"}
+            React->>React: 追加 "好" 到气泡末尾
+            Py-->>React: SSE data: {"type":"token","content":"的"}
+            React->>React: 追加 "的" (打字动画效果)
+        end
+
+        Py-->>React: SSE data: {"type":"done","metadata":{"action":"create_project"}}
+        React->>React: 解析 action
+        React->>React: 自动跳转到项目仪表盘 Tab
+    end
+
+    %% ===== WPS 读取流程 =====
+    rect rgb(254, 243, 199)
+        Note over User,Py: ═══ WPS 清单识别 (路径A COM) ═══
+
+        User->>React: "读取WPS当前打开的清单"
+        React->>Py: POST /api/wps/read-active
+
+        Py->>Py: WPSService.read_active_sheet()
+        Py->>Py: win32com.client.GetObject(Class='Et.Application')
+
+        alt WPS 正在运行
+            Py->>Py: .ActiveWorkbook.ActiveSheet.UsedRange
+            Py-->>React: WpsSheetData {raw_headers, raw_rows}
+            React->>React: 显示原始数据预览表格
+
+            User->>React: 点击 "AI 智能映射"
+            React->>Py: POST /api/wps/map-columns
+            Py->>Py: LLMEngine.map_wps_columns(raw_headers)
+            Note over Py: Prompt: 标准列=[编号,名称,参考尺寸,参考材质,是否带电,单位,数量,备注]
+            Py-->>React: WpsMappingResult {mappings, unmapped}
+
+            React->>React: 显示映射预览 (原始列→标准列)
+            User->>React: 确认映射
+            React->>Py: POST /api/wps/generate-list
+            Py-->>React: 标准清单数据 ✅
+        else WPS 未运行
+            Py-->>React: {"error": true, "message": "WPS 未运行"}
+            React->>React: 提示用户先打开WPS 或 使用文件导入(路径B)
+        end
+    end
