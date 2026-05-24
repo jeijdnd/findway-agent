@@ -23,7 +23,7 @@ GitHub：https://github.com/jeijdnd/findway-agent
 | 3 | 清单差异对比 | ✅ |
 | 4 | 开发者控制台 | ✅ |
 | 5 | CAD图纸读取 | ✅ |
-| 6 | 打包发布 | ⬜ |
+| 6 | 打包发布 | ✅ |
 
 ---
 
