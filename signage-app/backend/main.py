@@ -70,8 +70,8 @@ if is_production:
 async def health_check():
     """健康检查接口"""
     return {
-        "status": "ok", 
-        "message": "FindWay Agent API运行正常",
+        "status": "ok",
+        "version": "2.0.0",
         "mode": "production" if is_production else "development"
     }
 
@@ -92,10 +92,19 @@ async def general_exception_handler(request, exc):
     )
 
 if __name__ == "__main__":
+    # 从环境变量读取端口，默认8765
+    port = int(os.getenv('PORT', 8765))
+    
+    # 打印启动日志
+    print(f"FindWay Agent V2 后端启动，端口: {port}")
+    print(f"模式: {'生产模式' if is_production else '开发模式'}")
+    print(f"访问地址: http://127.0.0.1:{port}")
+    print(f"API文档: http://127.0.0.1:{port}/docs")
+    
     uvicorn.run(
         "main:app",
         host="127.0.0.1",
-        port=8765,
+        port=port,
         reload=True,
         log_level="info"
     )

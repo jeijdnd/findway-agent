@@ -469,3 +469,79 @@ PROGRESS_BOARD.md 中已标记完成的任务：
 ### 进度更新
 PROGRESS_BOARD.md 中已标记完成的任务：
 - [x] 6.4 启动 Bug 修复（chat.py 中文引号 + 清除 pycache）
+
+---
+
+## 会话17：V2 T01 Electron桌面壳
+
+| 字段 | 内容 |
+|------|------|
+| 日期 | 2026-05-24 |
+| 所属Phase | V2 T01 |
+| 完成任务ID | T01.1, T01.2, T01.3, T01.4, T01.5 |
+| 状态 | ✅完成 |
+
+### 新增文件
+- `signage-app/electron/main.js` — Electron主进程，包含窗口管理、系统托盘、Python子进程启动、健康检查轮询
+- `signage-app/electron/preload.js` — Electron预加载脚本，暴露安全API给渲染进程
+- `signage-app/package.json` — 项目根目录package.json，添加Electron相关配置和依赖
+
+### 修改文件
+- `signage-app/frontend/vite.config.js` — base改为'./'相对路径，适配Electron生产模式
+- `signage-app/backend/main.py` — 从环境变量PORT读取端口，增强健康检查接口返回版本号和模式
+- `PROGRESS_BOARD.md` — 添加V2 T01任务完成记录
+- `.workbuddy/project-memory/outline.md` — 创建项目大纲记忆文件
+- `.workbuddy/project-memory/decisions.md` — 创建决策记录记忆文件
+- `.workbuddy/project-memory/changelog.md` — 创建变更日志记忆文件
+
+### 实现的功能
+1. **Electron主进程**：
+   - 创建BrowserWindow（宽1400×高900，最小800×600）
+   - 使用electron-store记忆窗口位置/大小
+   - 系统托盘：右键菜单「显示主窗口」「退出」
+   - 关闭窗口不退出，隐藏到托盘；托盘退出时先kill Python子进程
+   - child_process.spawn启动Python后端（python backend/main.py，环境变量PORT=8765）
+   - 启动后轮询GET http://127.0.0.1:8765/api/health，最多30次间隔500ms
+   - 超时显示错误对话框"Python 后端启动失败"
+   - 开发模式加载http://localhost:5173，生产模式加载http://127.0.0.1:8765
+
+2. **Electron预加载脚本**：
+   - 暴露window.electronAPI.minimizeWindow() / maximizeWindow() / closeWindow()
+   - 暴露window.electronAPI.getAppVersion()
+   - 暴露window.electronAPI.onPythonStatus(callback)
+
+3. **package.json配置**：
+   - 添加"main": "electron/main.js"
+   - 添加scripts："electron-dev"、"electron-build"、"electron-start"
+   - 添加devDependencies：electron@^31、electron-builder@^24、electron-store@^8、concurrently@^8、wait-on@^7
+
+4. **Vite配置适配**：
+   - base改为'./'相对路径，适配Electron生产模式
+
+5. **后端增强**：
+   - 从环境变量PORT读取端口，默认8765
+   - 健康检查接口返回版本号和模式信息
+
+### 修复的Bug
+1. 无
+
+### 当前问题
+| 问题 | 影响 | 需PM介入？ |
+|------|------|-----------|
+| 需要安装Electron依赖 | 需要运行npm install安装新依赖 | 否 |
+| 需要测试Electron功能 | 需要实际运行测试 | 否 |
+
+### 下一步建议
+1. 安装Electron依赖：`cd signage-app && npm install`
+2. 启动开发模式测试：`npm run electron-dev`
+3. 构建生产版本：`npm run electron-build`
+4. 测试系统托盘、窗口记忆、Python子进程管理功能
+5. 开始V2 T02：LLM对话引擎替换
+
+### 进度更新
+PROGRESS_BOARD.md 中已标记完成的任务：
+- [x] T01.1 signage-app/electron/main.js（新建）— Electron主进程
+- [x] T01.2 signage-app/electron/preload.js（新建）— IPC桥接
+- [x] T01.3 signage-app/package.json（修改）— 添加Electron相关配置
+- [x] T01.4 signage-app/frontend/vite.config.js（修改）— 适配Electron
+- [x] T01.5 signage-app/backend/main.py（修改）— 增强启动配置

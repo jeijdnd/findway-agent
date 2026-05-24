@@ -16,6 +16,7 @@
 | Phase 4 | 开发者控制台 | 2 | ✅ 完成 |
 | Phase 5 | CAD辅助 | 2 | ✅ 完成 |
 | Phase 6 | 打包发布 | 2 | ✅ 完成 |
+| V2 T01 | Electron桌面壳 | 5 | ✅ 完成 |
 
 ---
 
@@ -115,3 +116,42 @@
 | 6.4 | 启动Bug修复 | 16 | ✅ |
 
 > ⬜未开始 | 🔵进行中 | ✅完成 | ❌阻塞
+
+---
+
+## V2 升级：Electron桌面壳（会话17）
+
+### V2 T01：Electron桌面壳
+
+| ID | 任务 | 状态 | 备注 |
+|----|------|------|------|
+| T01.1 | signage-app/electron/main.js（新建）— Electron主进程 | ✅ | 包含窗口管理、系统托盘、Python子进程启动、健康检查轮询 |
+| T01.2 | signage-app/electron/preload.js（新建）— IPC桥接 | ✅ | 暴露window.electronAPI给渲染进程 |
+| T01.3 | signage-app/package.json（修改）— 添加Electron相关配置 | ✅ | 添加main字段、scripts、devDependencies |
+| T01.4 | signage-app/frontend/vite.config.js（修改）— 适配Electron | ✅ | base改为'./'相对路径 |
+| T01.5 | signage-app/backend/main.py（修改）— 增强启动配置 | ✅ | 从环境变量PORT读取端口，增强健康检查接口 |
+
+### V2 T01 完成说明
+
+**Electron主进程功能**：
+- 创建BrowserWindow（宽1400×高900，最小800×600）
+- 使用electron-store记忆窗口位置/大小
+- 系统托盘：右键菜单「显示主窗口」「退出」
+- 关闭窗口不退出，隐藏到托盘；托盘退出时先kill Python子进程
+- child_process.spawn启动Python后端（python backend/main.py，环境变量PORT=8765）
+- 启动后轮询GET http://127.0.0.1:8765/api/health，最多30次间隔500ms
+- 超时显示错误对话框"Python 后端启动失败"
+- 开发模式加载http://localhost:5173，生产模式加载http://127.0.0.1:8765
+
+**技术决策**：
+- 使用electron-store存储窗口状态
+- 使用concurrently同时启动前端开发服务器和Electron
+- 使用wait-on等待前端服务器就绪后启动Electron
+- 开发模式判断标准：process.env.NODE_ENV !== 'production'
+
+**验证状态**：
+- [ ] 安装Electron依赖：npm install
+- [ ] 启动开发模式：npm run electron-dev
+- [ ] 构建生产版本：npm run electron-build
+- [ ] 测试系统托盘功能
+- [ ] 测试窗口位置记忆
