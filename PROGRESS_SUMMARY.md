@@ -8,12 +8,14 @@
 
 "FindWay Agent"——建筑导视标识设计AI助手桌面应用。
 用户：曹铭睿，腾讯标识设计师，Python 初学者。
-技术栈：Python FastAPI + React Vite + 本地JSON存储。
+技术栈：Electron + React + Python FastAPI + 本地JSON存储。
 GitHub：https://github.com/jeijdnd/findway-agent
 
 ---
 
 ## 当前进度
+
+### V1 Phase 0-6（全部完成 ✅）
 
 | Phase | 内容 | 状态 |
 |-------|------|:--:|
@@ -24,6 +26,18 @@ GitHub：https://github.com/jeijdnd/findway-agent
 | 4 | 开发者控制台 | ✅ |
 | 5 | CAD图纸读取 | ✅ |
 | 6 | 打包发布 | ✅ |
+
+### V2 升级（进行中）
+
+| Phase | 内容 | 状态 |
+|-------|------|:--:|
+| T01 | Electron 桌面壳 | ✅ |
+| T02 | LLM 对话引擎 + 多API后端 | ⬜ |
+| T03 | 兔钉清单合并引擎（★核心） | ⬜ |
+| T04 | 目录扫描 + 模板匹配 | ⬜ |
+| T05 | 前端交互升级 | ⬜ |
+| T06 | 工作流预设引擎 | ⬜ |
+| T07 | 多楼栋多Sheet管理 | ⬜ |
 
 ---
 
