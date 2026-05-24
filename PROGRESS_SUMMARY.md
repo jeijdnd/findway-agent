@@ -32,7 +32,7 @@ GitHub：https://github.com/jeijdnd/findway-agent
 | Phase | 内容 | 状态 |
 |-------|------|:--:|
 | T01 | Electron 桌面壳 | ✅ |
-| T02 | LLM 对话引擎 + 多API后端 | ⬜ |
+| T02 | LLM 对话引擎 + 多API后端 | ✅ |
 | T03 | 兔钉清单合并引擎（★核心） | ⬜ |
 | T04 | 目录扫描 + 模板匹配 | ⬜ |
 | T05 | 前端交互升级 | ⬜ |
