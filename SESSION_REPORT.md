@@ -545,3 +545,44 @@ PROGRESS_BOARD.md 中已标记完成的任务：
 - [x] T01.3 signage-app/package.json（修改）— 添加Electron相关配置
 - [x] T01.4 signage-app/frontend/vite.config.js（修改）— 适配Electron
 - [x] T01.5 signage-app/backend/main.py（修改）— 增强启动配置
+
+---
+
+## 会话18：V2 T02 LLM对话引擎 + 多API后端
+
+| 字段 | 内容 |
+|------|------|
+| 日期 | 2026-05-24 |
+| 所属Phase | V2 T02 |
+| 完成任务ID | T02.1, T02.2, T02.3, T02.4 |
+| 状态 | ✅完成 |
+
+### 新增文件
+- `signage-app/backend/services/llm_engine.py` — LLM引擎核心（AsyncOpenAI、流式/非流式、意图识别）
+- `signage-app/backend/services/__init__.py` — 服务模块初始化
+- `signage-app/backend/api/api_configs.py` — 多API配置 CRUD + 连通性测试
+
+### 修改文件
+- `signage-app/backend/api/chat.py` — 新增流式端点、模型列表；旧端点改调 llm_engine；删除关键词意图识别
+- `signage-app/backend/config.json` — LLM 段重构为 apis 数组 + default_api
+- `signage-app/backend/main.py` — 注册 api_configs 路由
+- `signage-app/install.bat` / `run.bat` — 添加 openai>=1.30.0 依赖
+- `PROGRESS_BOARD.md` — 标记 V2 T02 完成
+
+### 实现的功能
+1. **LLM引擎**：封装 AsyncOpenAI，支持多 API 配置、流式/非流式对话、LLM 意图识别
+2. **流式对话**：`POST /api/chat/stream` 返回 text/event-stream，逐 token SSE
+3. **多API管理**：CRUD 端点，api_key mask，Hello 测试连通性
+4. **错误处理**：友好错误消息，密钥脱敏
+
+### 下一步建议
+1. 在设置页或前端接入 `/api/chat/stream` 和 `/api/api-configs`
+2. 配置 DeepSeek API Key 后测试真实 LLM 对话
+3. 开始 V2 T03（按 PRD 规划）
+
+### 进度更新
+PROGRESS_BOARD.md 中已标记完成的任务：
+- [x] T02.1 llm_engine.py
+- [x] T02.2 chat.py 流式+模型列表
+- [x] T02.3 api_configs.py CRUD
+- [x] T02.4 config.json LLM段重构

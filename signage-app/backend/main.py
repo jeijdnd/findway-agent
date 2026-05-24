@@ -16,6 +16,7 @@ from backend.api.matching import router as matching_router
 from backend.api.compare import router as compare_router
 from backend.api.settings import router as settings_router
 from backend.api.cad import router as cad_router
+from backend.api.api_configs import router as api_configs_router
 
 app = FastAPI(
     title="FindWay Agent API",
@@ -44,6 +45,7 @@ app.include_router(matching_router)
 app.include_router(compare_router)
 app.include_router(settings_router)
 app.include_router(cad_router)
+app.include_router(api_configs_router)
 
 # 生产模式：添加静态文件服务
 if is_production:

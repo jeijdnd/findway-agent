@@ -52,7 +52,7 @@ echo.
 :: Install Python dependencies
 echo [4/5] Installing Python dependencies...
 call venv\Scripts\activate.bat
-pip install fastapi uvicorn openpyxl ezdxf
+pip install fastapi uvicorn openpyxl ezdxf "openai>=1.30.0"
 if %errorlevel% neq 0 (
     echo [ERROR] Failed to install Python dependencies
     pause

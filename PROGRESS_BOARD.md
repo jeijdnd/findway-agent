@@ -17,6 +17,7 @@
 | Phase 5 | CAD辅助 | 2 | ✅ 完成 |
 | Phase 6 | 打包发布 | 2 | ✅ 完成 |
 | V2 T01 | Electron桌面壳 | 5 | ✅ 完成 |
+| V2 T02 | LLM对话引擎 + 多API后端 | 4 | ✅ 完成 |
 
 ---
 
@@ -155,3 +156,33 @@
 - [ ] 构建生产版本：npm run electron-build
 - [ ] 测试系统托盘功能
 - [ ] 测试窗口位置记忆
+
+---
+
+## V2 升级：LLM对话引擎（会话18）
+
+### V2 T02：LLM对话引擎 + 多API后端
+
+| ID | 任务 | 状态 | 备注 |
+|----|------|------|------|
+| T02.1 | signage-app/backend/services/llm_engine.py（新建）— LLM引擎核心 | ✅ | AsyncOpenAI、流式/非流式对话、意图识别、多API配置 |
+| T02.2 | signage-app/backend/api/chat.py（修改）— 流式端点+模型列表 | ✅ | POST /api/chat/stream、GET /api/chat/models，旧端点改调 llm_engine |
+| T02.3 | signage-app/backend/api/api_configs.py（新建）— 多API配置CRUD | ✅ | GET/POST/PUT/DELETE + test 连通性 |
+| T02.4 | signage-app/backend/config.json（修改）— LLM段重构 | ✅ | apis 数组 + default_api，保留其他配置段 |
+
+### V2 T02 完成说明
+
+**LLM引擎功能**：
+- 封装 openai.AsyncOpenAI，从 config.json 读取多 API 配置
+- `chat_stream()` 逐 token 流式输出
+- `chat()` 非流式完整回复
+- `infer_intent()` LLM 意图识别 + 关键词降级
+- 错误消息脱敏，不暴露 api_key
+
+**新增 API 端点**：
+- `POST /api/chat/stream` — SSE 流式对话
+- `GET /api/chat/models` — 已启用模型列表
+- `GET/POST/PUT/DELETE /api/api-configs` — 多 API 配置 CRUD
+- `POST /api/api-configs/{id}/test` — Hello 连通性测试
+
+**依赖**：openai >= 1.30.0（install.bat / run.bat 已更新）

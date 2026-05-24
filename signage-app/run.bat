@@ -32,7 +32,7 @@ call venv\Scripts\activate.bat
 :: Check backend deps
 if not exist "venv\Lib\site-packages\fastapi" (
     echo [INFO] Installing backend dependencies...
-    pip install fastapi uvicorn openpyxl ezdxf
+    pip install fastapi uvicorn openpyxl ezdxf "openai>=1.30.0"
     if %errorlevel% neq 0 (
         echo [ERROR] Failed to install backend dependencies
         pause

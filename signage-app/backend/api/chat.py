@@ -1,13 +1,16 @@
 """
 聊天API模块
-提供对话接口，当前使用关键词意图识别
+提供对话接口，支持LLM对话引擎，流式输出
 """
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, AsyncGenerator
 import json
 import os
 from datetime import datetime
+
+from backend.services.llm_engine import llm_engine
 
 router = APIRouter()
 
@@ -21,6 +24,16 @@ class ChatRequest(BaseModel):
     """聊天请求数据模型"""
     message: str
     project_id: Optional[str] = None
+    api_config_id: Optional[str] = None
+
+
+class StreamChatRequest(BaseModel):
+    """流式聊天请求数据模型"""
+    message: str
+    project_id: Optional[str] = None
+    api_config_id: Optional[str] = None
+    history: Optional[List[dict]] = None
+
 
 class ChatResponse(BaseModel):
     """聊天响应数据模型"""
@@ -57,65 +70,10 @@ def save_chat_history(messages: List[ChatMessage], project_id: str = None):
     except Exception as e:
         print(f"保存聊天历史失败: {e}")
 
-def intent_recognition(message: str) -> tuple:
-    """关键词意图识别，返回(意图, 参数)"""
-    message_lower = message.lower()
-    # 创建项目意图 - 支持多种表述
-    create_keywords = ["创建项目", "新建项目", "建立项目", "创建一个", "新建一个", "建一个"]
-    if any(kw in message_lower for kw in create_keywords):
-        # 尝试提取项目名称
-        for kw in ["项目", "工程", "学校", "办公", "住宅", "，", ",", "类型"]:
-            if kw in message_lower:
-                parts = message.split(kw)
-                if len(parts) > 1 and parts[0].strip():
-                    # 清理项目名称中的前缀
-                    name = parts[0].strip()
-                    for prefix in ["帮我", "请", "我想", "我要", "创建一个", "新建一个", "建一个"]:
-                        name = name.replace(prefix, "")
-                    if name:
-                        return "create_project", {"name": name}
-        return "create_project", {}
-    
-    # 搜索旧项目意图 - 支持带类型参数
-    search_keywords = ["搜索旧项目", "查找旧项目", "找旧项目", "匹配旧项目", "找类似的", "推荐旧项目"]
-    if any(kw in message_lower for kw in search_keywords):
-        # 尝试提取项目类型
-        project_type = None
-        type_keywords = ["学校", "办公", "住宅", "医院", "商业", "工业"]
-        for type_kw in type_keywords:
-            if type_kw in message_lower:
-                project_type = type_kw
-                break
-        
-        # 提取关键词
-        keywords = None
-        keyword_patterns = ["旧项目", "项目", "清单", "施工图"]
-        for pattern in keyword_patterns:
-            if pattern in message_lower:
-                # 移除搜索关键词和类型关键词，剩下的作为关键词
-                temp_message = message_lower
-                for search_kw in search_keywords:
-                    temp_message = temp_message.replace(search_kw, "")
-                for type_kw in type_keywords:
-                    temp_message = temp_message.replace(type_kw, "")
-                for pattern_kw in keyword_patterns:
-                    temp_message = temp_message.replace(pattern_kw, "")
-                temp_message = temp_message.strip()
-                if temp_message:
-                    keywords = temp_message
-                break
-        
-        return "search_old_project", {"project_type": project_type, "keywords": keywords}
-    
-    if any(kw in message_lower for kw in ["对比清单", "比较清单", "清单对比", "对比两版", "比较两版", "差异对比"]):
-        return "compare_list", {}
-    if any(kw in message_lower for kw in ["规范", "标准", "规定", "要求", "安装高度", "设计规范"]):
-        return "query_spec", {}
-    return "default", {}
 
 @router.post("/api/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
-    """聊天接口，接收用户消息，返回AI回复"""
+    """聊天接口，接收用户消息，返回AI回复（非流式）"""
     try:
         history = load_chat_history(request.project_id)
         user_message = ChatMessage(
@@ -124,40 +82,39 @@ async def chat(request: ChatRequest):
             timestamp=datetime.now().isoformat()
         )
         history.append(user_message)
-        intent, params = intent_recognition(request.message)
+        
+        # 转换历史记录为字典格式
+        history_dicts = [{"role": msg.role, "content": msg.content} for msg in history[:-1]]  # 排除当前用户消息
+        
+        # 使用LLM引擎获取回复
+        reply = await llm_engine.chat(
+            message=request.message,
+            history=history_dicts,
+            api_config_id=request.api_config_id
+        )
+        
+        # 推断意图
+        intent = await llm_engine.infer_intent(message=request.message, history=history_dicts)
+        
+        # 根据意图设置action和data
+        action = None
+        data = None
         if intent == "create_project":
-            project_name = params.get("name", "新项目")
-            reply = f"好的，已创建\"{project_name}\"项目。需要我帮你找类似的旧项目来套用吗？"
             action = "create_project"
-            data = {"project_name": project_name}
+            data = {}
         elif intent == "search_old_project":
-            project_type = params.get("project_type")
-            keywords = params.get("keywords")
-            
-            # 构建回复消息
-            if project_type and keywords:
-                reply = f"正在为您搜索{project_type}类型的旧项目，关键词：{keywords}，请稍候..."
-            elif project_type:
-                reply = f"正在为您搜索{project_type}类型的旧项目，请稍候..."
-            elif keywords:
-                reply = f'正在为您搜索包含关键词 "{keywords}" 的旧项目，请稍候...'
-            else:
-                reply = "正在为您搜索匹配的旧项目，请稍候..."
-            
             action = "search_old_project"
-            data = {"project_type": project_type, "keywords": keywords}
+            data = {}
         elif intent == "compare_list":
-            reply = "好的，请上传两份清单文件进行对比。你可以在右侧面板的「清单对比」页面中拖放或点击上传Excel文件，系统会自动识别表头并按编号字段进行差异对比。"
             action = "compare_list"
             data = {}
         elif intent == "query_spec":
-            reply = "规范查询功能正在开发中，敬请期待！"
             action = "query_spec"
             data = {}
-        else:
-            reply = "你好！我是标识Agent，建筑导视标识设计AI助手。我可以帮你：\n1. 创建新项目\n2. 搜索旧项目\n3. 对比清单\n4. 查询规范\n\n请告诉我你需要什么帮助？"
-            action = None
-            data = None
+        elif intent == "merge_tuding":
+            action = "merge_tuding"
+            data = {}
+        
         assistant_message = ChatMessage(
             role="assistant",
             content=reply,
@@ -168,6 +125,80 @@ async def chat(request: ChatRequest):
         return ChatResponse(reply=reply, action=action, data=data)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"聊天处理失败: {str(e)}")
+
+
+@router.post("/api/chat/stream")
+async def chat_stream(request: StreamChatRequest):
+    """流式聊天接口，返回 text/event-stream"""
+    async def event_generator() -> AsyncGenerator[str, None]:
+        try:
+            # 优先使用请求中的 history，否则从持久化记录加载
+            if request.history is not None:
+                history_dicts = [
+                    {"role": m.get("role", "user"), "content": m.get("content", "")}
+                    for m in request.history
+                ]
+            else:
+                stored = load_chat_history(request.project_id)
+                history_dicts = [{"role": msg.role, "content": msg.content} for msg in stored]
+
+            full_reply = ""
+            async for token in llm_engine.chat_stream(
+                message=request.message,
+                history=history_dicts,
+                api_config_id=request.api_config_id,
+            ):
+                full_reply += token
+                yield f'data: {json.dumps({"type": "token", "content": token}, ensure_ascii=False)}\n\n'
+
+            # 推断意图
+            intent = await llm_engine.infer_intent(message=request.message, history=history_dicts)
+
+            # 保存对话历史
+            history = load_chat_history(request.project_id)
+            history.append(ChatMessage(
+                role="user",
+                content=request.message,
+                timestamp=datetime.now().isoformat(),
+            ))
+            history.append(ChatMessage(
+                role="assistant",
+                content=full_reply,
+                timestamp=datetime.now().isoformat(),
+            ))
+            save_chat_history(history, request.project_id)
+
+            metadata = {
+                "intent": intent,
+                "action": intent if intent != "general" else None,
+                "project_id": request.project_id,
+            }
+            yield f'data: {json.dumps({"type": "done", "metadata": metadata}, ensure_ascii=False)}\n\n'
+
+        except Exception as e:
+            yield f'data: {json.dumps({"type": "error", "content": f"聊天处理失败: {str(e)}"}, ensure_ascii=False)}\n\n'
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+@router.get("/api/chat/models")
+async def get_chat_models():
+    """返回所有已启用API的 {id, name, model} 列表"""
+    try:
+        configs = llm_engine.get_active_configs()
+        return {
+            "models": [
+                {"id": c["id"], "name": c.get("name", c["id"]), "model": c.get("model", "")}
+                for c in configs
+            ]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"获取模型列表失败: {str(e)}")
+
 
 @router.get("/api/chat/history")
 async def get_chat_history(project_id: Optional[str] = None):

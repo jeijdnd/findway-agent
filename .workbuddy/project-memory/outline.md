@@ -50,19 +50,19 @@
 - 文件：`start.bat`, `install.bat`
 
 ### 8. Electron桌面壳（V2 T01）
-- 状态：🔵 进行中
+- 状态：✅ 完成
 - 描述：用Electron包装Web应用，实现桌面应用体验
 - 文件：`electron/main.js`, `electron/preload.js`
 
-### 9. LLM对话引擎替换（V2 P0-2）
-- 状态：⬜ 未开始
-- 描述：将关键词意图识别替换为OpenAI兼容API调用，支持多轮对话
-- 文件：待定
+### 9. LLM对话引擎替换（V2 T02）
+- 状态：✅ 完成
+- 描述：OpenAI兼容API调用，流式输出，多API配置，意图识别
+- 文件：`backend/services/llm_engine.py`, `backend/api/chat.py`, `backend/api/api_configs.py`
 
 ### 10. 多API配置面板（V2 P0-3）
-- 状态：⬜ 未开始
+- 状态：🔵 后端完成，前端待接入
 - 描述：设置页面支持添加/编辑/删除多个LLM API，对话中可切换模型
-- 文件：待定
+- 文件：`backend/api/api_configs.py`（后端已完成）
 
 ### 11. 本地目录扫描与自动发现（V2 P0-4）
 - 状态：⬜ 未开始
@@ -70,9 +70,9 @@
 - 文件：待定
 
 ## 待办事项
-- [ ] 完成V2 T01：Electron桌面壳（当前任务）
-- [ ] 实现LLM对话引擎替换
-- [ ] 实现多API配置面板
+- [x] 完成V2 T01：Electron桌面壳
+- [x] 实现LLM对话引擎替换（V2 T02）
+- [ ] 前端接入多API配置面板与流式对话
 - [ ] 实现本地目录扫描与自动发现
 - [ ] WPS清单识别与映射（P1）
 - [ ] 格原协同平台接入（P1）
