@@ -4,6 +4,23 @@
 
 ---
 
+## [2026-05-24] 会话19：V2 T03 兔钉清单合并引擎完成
+
+### 完成内容
+- 创建 merge_engine.py 兔钉清单合并引擎
+- 创建 merge.py 合并 API（preview/apply/templates）
+- 注册路由，更新 PROGRESS_BOARD 和 SESSION_REPORT
+
+### 修改文件
+- `signage-app/backend/services/merge_engine.py`：新建
+- `signage-app/backend/api/merge.py`：新建
+- `signage-app/backend/main.py`：注册 merge 路由
+
+### 重要备注
+- V2 T03 核心功能完成，需真实样本文件做端到端验证
+
+---
+
 ## [2026-05-24] 会话18：V2 T02 LLM对话引擎完成
 
 ### 完成内容

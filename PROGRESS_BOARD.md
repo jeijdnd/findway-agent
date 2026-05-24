@@ -18,6 +18,7 @@
 | Phase 6 | 打包发布 | 2 | ✅ 完成 |
 | V2 T01 | Electron桌面壳 | 5 | ✅ 完成 |
 | V2 T02 | LLM对话引擎 + 多API后端 | 4 | ✅ 完成 |
+| V2 T03 | 兔钉清单合并引擎 | 2 | ✅ 完成 |
 
 ---
 
@@ -186,3 +187,27 @@
 - `POST /api/api-configs/{id}/test` — Hello 连通性测试
 
 **依赖**：openai >= 1.30.0（install.bat / run.bat 已更新）
+
+---
+
+## V2 升级：兔钉清单合并引擎（会话19）
+
+### V2 T03：兔钉清单合并引擎 ★
+
+| ID | 任务 | 状态 | 备注 |
+|----|------|------|------|
+| T03.1 | signage-app/backend/services/merge_engine.py（新建）— 合并引擎核心 | ✅ | 读取兔钉导出/完整清单、编号匹配、生成新清单 |
+| T03.2 | signage-app/backend/api/merge.py（新建）— 合并 API | ✅ | preview/apply/templates 三个端点 |
+
+### V2 T03 完成说明
+
+**合并引擎功能**：
+- `read_tuding_export()` — 解析「图例统计」+「信息」Sheet，动态识别数量列
+- `read_full_checklist()` — 解析和阳楼格式完整清单，建立编号索引
+- `merge()` — 按编号精确匹配：🟢matched / 🟡zeroed / 🔴new_item
+- `generate_checklist()` — 复制模板写入数量，新增项黄色标注，不修改原模板
+
+**新增 API 端点**：
+- `POST /api/merge/preview` — 上传兔钉+清单，返回 MergeResult（不写入）
+- `POST /api/merge/apply` — 合并并生成新清单文件
+- `GET /api/merge/templates` — 扫描可用清单模板列表

@@ -586,3 +586,41 @@ PROGRESS_BOARD.md 中已标记完成的任务：
 - [x] T02.2 chat.py 流式+模型列表
 - [x] T02.3 api_configs.py CRUD
 - [x] T02.4 config.json LLM段重构
+
+---
+
+## 会话19：V2 T03 兔钉清单合并引擎
+
+| 字段 | 内容 |
+|------|------|
+| 日期 | 2026-05-24 |
+| 所属Phase | V2 T03 |
+| 完成任务ID | T03.1, T03.2 |
+| 状态 | ✅完成 |
+
+### 新增文件
+- `signage-app/backend/services/merge_engine.py` — 兔钉清单合并引擎核心
+- `signage-app/backend/api/merge.py` — 合并 API（preview/apply/templates）
+- `signage-app/backend/data/templates/.gitkeep` — 模板存放目录
+- `signage-app/backend/data/merge_output/.gitkeep` — 合并输出目录
+
+### 修改文件
+- `signage-app/backend/main.py` — 注册 merge 路由
+- `PROGRESS_BOARD.md` — 标记 V2 T03 完成
+
+### 实现的功能
+1. **read_tuding_export**：解析图例统计 Sheet（动态数量列）+ 信息 Sheet
+2. **read_full_checklist**：遍历分类 Sheet，建立编号索引
+3. **merge**：编号精确匹配，返回 matched/zeroed/new_item 三色结果
+4. **generate_checklist**：复制模板写入，新增项黄色标注，不修改原模板
+5. **API**：preview（预览）、apply（生成文件）、templates（模板列表）
+
+### 下一步建议
+1. 前端 MergePreview.jsx 接入 `/api/merge/preview` 和 `/api/merge/apply`
+2. 放入真实兔钉导出和完整清单样本到 `data/templates/` 做端到端测试
+3. 开始 V2 T04 本地目录扫描
+
+### 进度更新
+PROGRESS_BOARD.md 中已标记完成的任务：
+- [x] T03.1 merge_engine.py
+- [x] T03.2 merge.py API
