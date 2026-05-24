@@ -140,7 +140,7 @@ async def chat(request: ChatRequest):
             elif project_type:
                 reply = f"正在为您搜索{project_type}类型的旧项目，请稍候..."
             elif keywords:
-                reply = f"正在为您搜索包含关键词"{keywords}"的旧项目，请稍候..."
+                reply = f'正在为您搜索包含关键词 "{keywords}" 的旧项目，请稍候...'
             else:
                 reply = "正在为您搜索匹配的旧项目，请稍候..."
             

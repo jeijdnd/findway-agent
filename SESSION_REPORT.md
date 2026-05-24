@@ -437,3 +437,35 @@ PROGRESS_BOARD.md 中已标记完成的任务：
 ### 进度更新
 PROGRESS_BOARD.md 中已标记完成的任务：
 - [x] 6.3 bat文件编码修复
+
+---
+
+## 会话16：Phase 6 启动 Bug 修复
+
+| 字段 | 内容 |
+|------|------|
+| 日期 | 2026-05-24 |
+| 所属Phase | Phase 6 |
+| 完成任务ID | 6.4 |
+| 状态 | ✅完成 |
+
+### 修改文件
+- `signage-app/backend/api/chat.py` — 确认第143行使用 ASCII 双引号，修复中文双引号导致的 SyntaxError
+
+### 清理文件
+- 删除 `signage-app/backend/__pycache__/` — 旧缓存导致使用未修复的编译代码
+- 删除 `signage-app/backend/api/__pycache__/` — 同上
+- 删除 `signage-app/backend/engine/__pycache__/` — 同上
+
+### 修复的Bug
+1. bat 文件编码转换（UTF-8 → GB2312）时污染了 `chat.py`，中文双引号 `""` 被 Python 当作字符串结束符导致 SyntaxError → 确保使用 ASCII 双引号 `""`
+2. 旧的 `__pycache__` 缓存文件使 Python 加载了未修复的旧版编译代码 → 清除所有项目级 `__pycache__` 目录
+
+### 当前问题
+| 问题 | 影响 | 需PM介入？ |
+|------|------|-----------|
+| 无 | — | — |
+
+### 进度更新
+PROGRESS_BOARD.md 中已标记完成的任务：
+- [x] 6.4 启动 Bug 修复（chat.py 中文引号 + 清除 pycache）
