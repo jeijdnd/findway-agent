@@ -27,7 +27,7 @@ GitHub：https://github.com/jeijdnd/findway-agent
 | 5 | CAD图纸读取 | ✅ |
 | 6 | 打包发布 | ✅ |
 
-### V2 升级（进行中）
+### V2 升级（全部完成 ✅）
 
 | Phase | 内容 | 状态 |
 |-------|------|:--:|
@@ -36,7 +36,15 @@ GitHub：https://github.com/jeijdnd/findway-agent
 | T03 | 兔钉清单合并引擎（★核心） | ✅ |
 | P0-3 | 多API配置前端接入 | ✅ |
 | P0-4 | 目录扫描与自动发现 | ✅ |
-| P0-5 | 合并预览页 MergePreview.jsx | ⬜ |
+| P0-5 | 合并预览页 MergePreview.jsx | ✅ |
+
+### V2 P1 待办
+
+| Phase | 内容 | 状态 |
+|-------|------|:--:|
+| P1-1 | WPS清单识别与映射 | ⬜ |
+| P1-2 | 格原协同平台接入 | ⬜ |
+| P1-3 | 按任务自动切换模型 | ⬜ |
 
 ---
 
