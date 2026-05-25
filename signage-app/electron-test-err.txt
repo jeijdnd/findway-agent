@@ -1,0 +1,5 @@
+[Python后端错误] Traceback (most recent call last):
+[Python后端错误] File "E:\�����\findway_agent\signage-app\backend\main.py", line 13, in <module>
+    from backend.api.projects import router as projects_router
+ModuleNotFoundError: No module named 'backend'
+Python后端启动超时（15秒）
