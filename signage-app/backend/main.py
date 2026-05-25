@@ -40,7 +40,7 @@ if not is_production:
         allow_headers=["*"],
     )
 
-# 注册路由
+# 核心 API 路由（须在任意条件分支之前注册，确保开发/生产模式均可用）
 app.include_router(projects_router)
 app.include_router(chat_router)
 app.include_router(matching_router)
@@ -50,6 +50,34 @@ app.include_router(cad_router)
 app.include_router(api_configs_router)
 app.include_router(merge_router)
 app.include_router(scanner_router)
+
+
+@app.get("/api/health")
+async def health_check():
+    """健康检查接口"""
+    return {
+        "status": "ok",
+        "version": "2.0.0",
+        "mode": "production" if is_production else "development"
+    }
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request, exc):
+    """HTTP异常处理器"""
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"error": True, "message": str(exc.detail)}
+    )
+
+
+@app.exception_handler(Exception)
+async def general_exception_handler(request, exc):
+    """通用异常处理器"""
+    return JSONResponse(
+        status_code=500,
+        content={"error": True, "message": f"服务器内部错误: {str(exc)}"}
+    )
 
 # 生产模式：添加静态文件服务
 if is_production:
@@ -71,31 +99,6 @@ if is_production:
         
         # 否则返回index.html（SPA路由）
         return FileResponse(frontend_dist / "index.html")
-
-@app.get("/api/health")
-async def health_check():
-    """健康检查接口"""
-    return {
-        "status": "ok",
-        "version": "2.0.0",
-        "mode": "production" if is_production else "development"
-    }
-
-@app.exception_handler(HTTPException)
-async def http_exception_handler(request, exc):
-    """HTTP异常处理器"""
-    return JSONResponse(
-        status_code=exc.status_code,
-        content={"error": True, "message": str(exc.detail)}
-    )
-
-@app.exception_handler(Exception)
-async def general_exception_handler(request, exc):
-    """通用异常处理器"""
-    return JSONResponse(
-        status_code=500,
-        content={"error": True, "message": f"服务器内部错误: {str(exc)}"}
-    )
 
 if __name__ == "__main__":
     # 从环境变量读取端口，默认8765
