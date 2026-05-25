@@ -78,6 +78,13 @@ class LLMEngine:
         active_configs = self.get_active_configs()
         return active_configs[0] if active_configs else None
     
+    def _resolve_api_key(self, api_config: Dict[str, Any]) -> str:
+        """优先环境变量 LLM_API_KEY，否则使用 config 中的 api_key"""
+        env_key = (os.getenv("LLM_API_KEY") or "").strip()
+        if env_key:
+            return env_key
+        return (api_config.get("api_key") or "").strip()
+
     def _sanitize_error(self, error: Exception) -> str:
         """将异常转为友好错误消息，不暴露 api_key"""
         msg = str(error)
@@ -96,13 +103,9 @@ class LLMEngine:
 
     def _create_client(self, api_config: Dict[str, Any]) -> AsyncOpenAI:
         """创建OpenAI客户端"""
-        api_key = api_config.get("api_key", "")
+        api_key = self._resolve_api_key(api_config)
         base_url = api_config.get("base_url", "https://api.openai.com/v1")
-        
-        # 如果api_key为空，尝试从环境变量读取
-        if not api_key:
-            api_key = os.getenv("LLM_API_KEY", "")
-        
+
         return AsyncOpenAI(
             api_key=api_key,
             base_url=base_url
@@ -146,9 +149,9 @@ class LLMEngine:
             yield "错误：没有可用的API配置，请在设置中添加并启用LLM API"
             return
 
-        api_key = api_config.get("api_key", "") or os.getenv("LLM_API_KEY", "")
+        api_key = self._resolve_api_key(api_config)
         if not api_key:
-            yield "错误：API密钥未配置，请在设置中填写 api_key 或设置环境变量 LLM_API_KEY"
+            yield "错误：API密钥未配置，请设置环境变量 LLM_API_KEY 或在设置中填写 api_key"
             return
 
         try:
@@ -206,9 +209,9 @@ class LLMEngine:
         if not api_config:
             return "错误：没有可用的API配置，请在设置中添加并启用LLM API"
 
-        api_key = api_config.get("api_key", "") or os.getenv("LLM_API_KEY", "")
+        api_key = self._resolve_api_key(api_config)
         if not api_key:
-            return "错误：API密钥未配置，请在设置中填写 api_key 或设置环境变量 LLM_API_KEY"
+            return "错误：API密钥未配置，请设置环境变量 LLM_API_KEY 或在设置中填写 api_key"
 
         try:
             client = self._create_client(api_config)

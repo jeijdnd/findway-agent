@@ -36,18 +36,20 @@
   "llm": {
     "apis": [
       {
-        "id": "deepseek-v3",
-        "name": "DeepSeek V3",
-        "base_url": "https://api.deepseek.com/v1",
+        "id": "mimo-v25-l1tfsw",
+        "name": "mimo-v2.5",
+        "base_url": "https://token-plan-cn.xiaomimimo.com/v1",
         "api_key": "",
-        "model": "deepseek-chat",
+        "model": "MiMo-V2.5",
         "enabled": true
       }
     ],
-    "default_api": "deepseek-v3"
+    "default_api": "mimo-v25-l1tfsw"
   },
   "scanner": {
-    "watch_dirs": ["E:\\projects"],
+    "watch_dirs": [
+      "E:\\projects"
+    ],
     "max_depth": 3,
     "auto_register": false
   }
