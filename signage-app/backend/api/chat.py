@@ -43,6 +43,29 @@ class ChatResponse(BaseModel):
 
 CHAT_HISTORY_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "chat_history.json")
 
+
+def _resolve_chat_api_config_id(api_config_id: Optional[str] = None) -> Optional[str]:
+    """解析本次对话应使用的 API 配置 ID（请求未指定时使用 default_api）"""
+    if api_config_id:
+        if llm_engine.get_config_by_id(api_config_id):
+            return api_config_id
+        return None
+
+    default_config = llm_engine.get_default_config()
+    return default_config.get("id") if default_config else None
+
+
+def _ensure_llm_api_key(api_config_id: Optional[str] = None) -> Optional[str]:
+    """校验 LLM API Key 是否可用，返回解析后的配置 ID"""
+    resolved_id = _resolve_chat_api_config_id(api_config_id)
+    if not resolved_id:
+        return None
+
+    api_config = llm_engine.resolve_api_config(resolved_id)
+    if not api_config or not api_config.get("api_key"):
+        return None
+    return resolved_id
+
 def load_chat_history(project_id: str = None) -> List[ChatMessage]:
     """加载聊天历史"""
     try:
@@ -85,12 +108,20 @@ async def chat(request: ChatRequest):
         
         # 转换历史记录为字典格式
         history_dicts = [{"role": msg.role, "content": msg.content} for msg in history[:-1]]  # 排除当前用户消息
-        
-        # 使用LLM引擎获取回复
+
+        api_config_id = _ensure_llm_api_key(request.api_config_id)
+        if not api_config_id:
+            return ChatResponse(
+                reply="错误：API密钥未配置，请设置环境变量 LLM_API_KEY 或在设置中填写 api_key",
+                action=None,
+                data=None,
+            )
+
+        # 使用LLM引擎获取回复（传入已解析的 api_config_id，确保 api_key 生效）
         reply = await llm_engine.chat(
             message=request.message,
             history=history_dicts,
-            api_config_id=request.api_config_id
+            api_config_id=api_config_id
         )
         
         # 推断意图
@@ -142,11 +173,16 @@ async def chat_stream(request: StreamChatRequest):
                 stored = load_chat_history(request.project_id)
                 history_dicts = [{"role": msg.role, "content": msg.content} for msg in stored]
 
+            api_config_id = _ensure_llm_api_key(request.api_config_id)
+            if not api_config_id:
+                yield f'data: {json.dumps({"type": "error", "content": "错误：API密钥未配置，请设置环境变量 LLM_API_KEY 或在设置中填写 api_key"}, ensure_ascii=False)}\n\n'
+                return
+
             full_reply = ""
             async for token in llm_engine.chat_stream(
                 message=request.message,
                 history=history_dicts,
-                api_config_id=request.api_config_id,
+                api_config_id=api_config_id,
             ):
                 full_reply += token
                 yield f'data: {json.dumps({"type": "token", "content": token}, ensure_ascii=False)}\n\n'

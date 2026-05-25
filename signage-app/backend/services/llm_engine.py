@@ -3,6 +3,7 @@ LLM对话引擎核心模块
 封装OpenAI兼容API，支持多API配置、流式输出、意图识别
 """
 
+import copy
 import json
 import os
 import re
@@ -58,13 +59,13 @@ class LLMEngine:
         return [api for api in apis if api.get("enabled", False)]
     
     def get_config_by_id(self, config_id: str) -> Optional[Dict[str, Any]]:
-        """根据ID获取API配置"""
+        """根据ID获取API配置（返回副本，避免缓存对象被意外修改）"""
         config = self._load_config()
         llm_config = config.get("llm", {})
         apis = llm_config.get("apis", [])
         for api in apis:
             if api.get("id") == config_id:
-                return api
+                return copy.deepcopy(api)
         return None
     
     def get_default_config(self) -> Optional[Dict[str, Any]]:
@@ -78,12 +79,45 @@ class LLMEngine:
         active_configs = self.get_active_configs()
         return active_configs[0] if active_configs else None
     
+    def invalidate_config_cache(self):
+        """清除配置缓存，强制下次从磁盘重新读取"""
+        self._config_cache = None
+        self._config_mtime = 0
+
+    def _read_fresh_api_key(self, config_id: str) -> str:
+        """从磁盘直接读取 api_key，避免内存缓存仍为空字符串"""
+        try:
+            with open(self.config_path, "r", encoding="utf-8") as f:
+                config = json.load(f)
+            llm_config = config.get("llm", {})
+            for api in llm_config.get("apis", []):
+                if api.get("id") == config_id:
+                    key = (api.get("api_key") or "").strip()
+                    if key and key != "***":
+                        return key
+            legacy_key = (llm_config.get("api_key") or "").strip()
+            if legacy_key and legacy_key != "***":
+                return legacy_key
+        except Exception as e:
+            print(f"读取 API Key 失败: {e}")
+        return ""
+
     def _resolve_api_key(self, api_config: Dict[str, Any]) -> str:
-        """优先环境变量 LLM_API_KEY，否则使用 config 中的 api_key"""
+        """优先环境变量 LLM_API_KEY，否则从磁盘/config 读取 api_key"""
         env_key = (os.getenv("LLM_API_KEY") or "").strip()
         if env_key:
             return env_key
-        return (api_config.get("api_key") or "").strip()
+
+        config_id = (api_config.get("id") or "").strip()
+        if config_id:
+            fresh_key = self._read_fresh_api_key(config_id)
+            if fresh_key:
+                return fresh_key
+
+        key = (api_config.get("api_key") or "").strip()
+        if key and key != "***":
+            return key
+        return ""
 
     def _sanitize_error(self, error: Exception) -> str:
         """将异常转为友好错误消息，不暴露 api_key"""
@@ -102,14 +136,29 @@ class LLMEngine:
         return f"LLM调用失败：{msg}"
 
     def _create_client(self, api_config: Dict[str, Any]) -> AsyncOpenAI:
-        """创建OpenAI客户端"""
+        """创建OpenAI客户端，每次调用都重新解析 api_key"""
         api_key = self._resolve_api_key(api_config)
         base_url = api_config.get("base_url", "https://api.openai.com/v1")
 
         return AsyncOpenAI(
-            api_key=api_key,
+            api_key=api_key or None,
             base_url=base_url
         )
+
+    def resolve_api_config(self, api_config_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        """解析本次请求使用的 API 配置，并注入已解析的 api_key"""
+        if api_config_id:
+            api_config = self.get_config_by_id(api_config_id)
+        else:
+            api_config = self.get_default_config()
+            if api_config is not None:
+                api_config = copy.deepcopy(api_config)
+
+        if not api_config:
+            return None
+
+        api_config["api_key"] = self._resolve_api_key(api_config)
+        return api_config
     
     def _format_history(self, history: List[Dict[str, str]]) -> List[Dict[str, str]]:
         """格式化对话历史，确保符合OpenAI格式"""
@@ -139,17 +188,12 @@ class LLMEngine:
         Yields:
             每个token的内容
         """
-        # 获取API配置
-        if api_config_id:
-            api_config = self.get_config_by_id(api_config_id)
-        else:
-            api_config = self.get_default_config()
-        
+        api_config = self.resolve_api_config(api_config_id)
         if not api_config:
             yield "错误：没有可用的API配置，请在设置中添加并启用LLM API"
             return
 
-        api_key = self._resolve_api_key(api_config)
+        api_key = api_config.get("api_key", "")
         if not api_key:
             yield "错误：API密钥未配置，请设置环境变量 LLM_API_KEY 或在设置中填写 api_key"
             return
@@ -200,16 +244,11 @@ class LLMEngine:
         Returns:
             完整的回复内容
         """
-        # 获取API配置
-        if api_config_id:
-            api_config = self.get_config_by_id(api_config_id)
-        else:
-            api_config = self.get_default_config()
-        
+        api_config = self.resolve_api_config(api_config_id)
         if not api_config:
             return "错误：没有可用的API配置，请在设置中添加并启用LLM API"
 
-        api_key = self._resolve_api_key(api_config)
+        api_key = api_config.get("api_key", "")
         if not api_key:
             return "错误：API密钥未配置，请设置环境变量 LLM_API_KEY 或在设置中填写 api_key"
 
@@ -268,12 +307,10 @@ class LLMEngine:
 只返回意图代码，不要返回其他内容。"""
         
         try:
-            # 使用简化的配置进行意图识别
-            api_config = self.get_default_config()
-            if not api_config:
-                # 如果没有API配置，使用简单的关键词匹配作为降级方案
+            api_config = self.resolve_api_config()
+            if not api_config or not api_config.get("api_key"):
                 return self._fallback_intent_recognition(message)
-            
+
             client = self._create_client(api_config)
             model = api_config.get("model", "gpt-4o-mini")
             
