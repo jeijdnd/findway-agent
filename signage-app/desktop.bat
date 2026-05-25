@@ -1,27 +1,29 @@
 @echo off
 title FindWay Agent - Desktop
-echo.
 
-:: Check if Electron is installed
-if not exist "node_modules\electron" (
-    echo [INFO] Installing Electron (first time)...
-    call npm install
-    echo.
-)
+cd /d "%~dp0"
 
-:: Check if frontend is built
+:: Step 1: Check frontend build
 if not exist "frontend\dist\index.html" (
-    echo [INFO] Building frontend...
+    echo [INFO] Building frontend (first time)...
     cd frontend
     call npm install
     call npm run build
     cd ..
-    echo.
 )
 
+:: Step 2: Check Electron
+if not exist "node_modules\electron" (
+    echo [INFO] Downloading Electron (~100MB, first time only)...
+    echo 请勿关闭此窗口，预计1-3分钟...
+    call npm install
+)
+
+:: Step 3: Launch
 echo [INFO] Starting FindWay Agent Desktop...
+start "" "node_modules\.bin\electron.cmd" .
+
 echo.
-
-:: Launch Electron (it auto-starts Python backend)
-call npx electron .
-
+echo Electron window should open shortly.
+echo If not, check that install.bat was run first.
+pause
