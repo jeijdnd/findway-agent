@@ -59,7 +59,8 @@ function startPythonBackend() {
       cwd: path.join(__dirname, '..'), // 工作目录为signage-app
       env: {
         ...process.env,
-        PORT: '8765' // 设置后端端口环境变量
+        PORT: '8765', // 设置后端端口环境变量
+        PYTHONPATH: path.join(__dirname, '..')
       },
       stdio: 'pipe' // 捕获输出
     };
