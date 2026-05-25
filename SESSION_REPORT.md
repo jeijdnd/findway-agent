@@ -699,3 +699,39 @@ PROGRESS_BOARD.md 中已标记完成的任务：
 - [x] P0-4.2 api/scanner.py
 - [x] P0-4.3 Dashboard.jsx
 - [x] P0-4.4 config.json scanner 段
+
+---
+
+## 会话22：V2 P0-5 合并预览页
+
+| 字段 | 内容 |
+|------|------|
+| 日期 | 2026-05-25 |
+| 所属Phase | V2 P0-5 |
+| 完成任务ID | P0-5.1, P0-5.2, P0-5.3 |
+| 状态 | ✅完成 |
+
+### 新增文件
+- `signage-app/frontend/src/pages/MergePreview.jsx` — 兔钉合并预览页（上传/预览/导出）
+
+### 修改文件
+- `signage-app/frontend/src/components/AppLayout.jsx` — 新增「合并预览」标签 + merge_tuding 联动
+- `signage-app/backend/api/merge.py` — 新增 GET `/api/merge/download/{filename}` 下载端点
+- `PROGRESS_BOARD.md` — 标记 V2 P0-5 完成
+
+### 实现的功能
+1. **双文件上传**：兔钉导出 + 完整清单模板，支持拖放/点击选择
+2. **合并预览**：POST `/api/merge/preview`，汇总卡片 + 明细表格（新增项黄色高亮）
+3. **确认合并**：POST `/api/merge/apply` 生成清单，通过 download 端点触发浏览器下载
+4. **三态覆盖**：Loading / Empty / Error + 成功提示
+5. **标签路由**：AppLayout 第四个主标签「合并预览」，对话 merge_tuding 意图联动
+
+### 说明
+- 后端实际端点为 `/api/merge/apply`（非文档中的 execute）
+- 补充 download 端点以支持浏览器 xlsx 下载（apply 仅返回 JSON 路径）
+
+### 进度更新
+PROGRESS_BOARD.md 中已标记完成的任务：
+- [x] P0-5.1 MergePreview.jsx
+- [x] P0-5.2 AppLayout.jsx 标签路由
+- [x] P0-5.3 merge.py 下载端点

@@ -7,6 +7,7 @@ import tempfile
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from backend.services.merge_engine import merge_engine
@@ -123,6 +124,25 @@ async def merge_apply(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"合并应用失败: {str(e)}")
+
+
+@router.get("/api/merge/download/{filename}")
+async def download_merge_output(filename: str):
+    """下载合并生成的清单文件"""
+    _ensure_dirs()
+    safe_name = os.path.basename(filename)
+    if not safe_name.lower().endswith((".xlsx", ".xls")):
+        raise HTTPException(status_code=400, detail="无效的文件名")
+
+    file_path = os.path.join(OUTPUT_DIR, safe_name)
+    if not os.path.isfile(file_path):
+        raise HTTPException(status_code=404, detail="文件不存在或已过期")
+
+    return FileResponse(
+        file_path,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        filename=safe_name,
+    )
 
 
 @router.get("/api/merge/templates")

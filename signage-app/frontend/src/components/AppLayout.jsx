@@ -3,6 +3,7 @@ import ChatPanel from './ChatPanel'
 import Dashboard from '../pages/Dashboard'
 import Matching from '../pages/Matching'
 import Compare from '../pages/Compare'
+import MergePreview from '../pages/MergePreview'
 import Settings from '../pages/Settings'
 import '../App.css'
 
@@ -215,6 +216,9 @@ function AppLayout() {
     } else if (action === 'compare_list') {
       setActiveTab('compare')
       setRefreshKey(prev => prev + 1)
+    } else if (action === 'merge_tuding') {
+      setActiveTab('merge')
+      setRefreshKey(prev => prev + 1)
     }
   }
 
@@ -226,6 +230,8 @@ function AppLayout() {
         return <Matching key={refreshKey} />
       case 'compare':
         return <Compare key={refreshKey} />
+      case 'merge':
+        return <MergePreview key={refreshKey} />
       case 'settings':
         return <Settings key={refreshKey} />
       case 'cad':
@@ -260,6 +266,12 @@ function AppLayout() {
             onClick={() => setActiveTab('compare')}
           >
             清单对比
+          </button>
+          <button
+            className={`panel-tab ${activeTab === 'merge' ? 'active' : ''}`}
+            onClick={() => setActiveTab('merge')}
+          >
+            合并预览
           </button>
           <button
             className={`panel-tab ${activeTab === 'settings' ? 'active' : ''}`}
