@@ -1,3 +1,5 @@
+⚠️ 先执行 git pull（本机可能不是最新代码）
+
 @PROGRESS_BOARD.md
 
 当前：V1全部完成 + V2 T01/T02/T03完成。
