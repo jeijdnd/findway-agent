@@ -35,7 +35,7 @@ GitHub：https://github.com/jeijdnd/findway-agent
 | T02 | LLM 对话引擎 + 多API后端 | ✅ |
 | T03 | 兔钉清单合并引擎（★核心） | ✅ |
 | P0-3 | 多API配置前端接入 | ✅ |
-| P0-4 | 目录扫描与自动发现 | ⬜ |
+| P0-4 | 目录扫描与自动发现 | ✅ |
 | P0-5 | 合并预览页 MergePreview.jsx | ⬜ |
 
 ---
