@@ -45,5 +45,10 @@
       }
     ],
     "default_api": "deepseek-v3"
+  },
+  "scanner": {
+    "watch_dirs": ["E:\\projects"],
+    "max_depth": 3,
+    "auto_register": false
   }
 }

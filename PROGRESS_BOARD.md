@@ -20,6 +20,7 @@
 | V2 T02 | LLM对话引擎 + 多API后端 | 4 | ✅ 完成 |
 | V2 T03 | 兔钉清单合并引擎 | 2 | ✅ 完成 |
 | V2 P0-3 | 多API配置前端接入 | 1 | ✅ 完成 |
+| V2 P0-4 | 目录扫描与自动发现 | 4 | ✅ 完成 |
 
 ---
 
@@ -233,3 +234,32 @@
 - 「重新加载配置」：刷新列表 + `/api/settings/reload` 同步 default_api
 - Loading / Empty / Error+重试 三态
 - 保留模块开关、匹配规则滑块等原有功能
+
+---
+
+## V2 升级：目录扫描（会话21）
+
+### V2 P0-4：目录扫描与自动发现
+
+| ID | 任务 | 状态 | 备注 |
+|----|------|------|------|
+| P0-4.1 | engine/scanner.py — DirectoryScanner | ✅ | 递归/浅层扫描，.xlsx 识别项目目录 |
+| P0-4.2 | api/scanner.py — 扫描+注册 API | ✅ | scan / register / config |
+| P0-4.3 | Dashboard.jsx — 扫描目录 UI | ✅ | 弹窗输入路径、结果列表、一键注册 |
+| P0-4.4 | config.json — scanner 配置段 | ✅ | watch_dirs / max_depth / auto_register |
+
+### V2 P0-4 完成说明
+
+**扫描引擎**（只读）：
+- `is_project_dir`：目录内含 .xlsx 且排除 `~$` 临时文件
+- `scan`：递归发现项目文件夹，返回 name / path / file_count
+- `quick_scan`：限定 depth 的浅层扫描
+
+**API 端点**：
+- `GET /api/scanner/config` — 读取 watch_dirs、max_depth
+- `POST /api/scanner/scan` — 扫描指定根目录
+- `POST /api/scanner/register` — 注册为仪表盘项目卡片（调用 projects 存储）
+
+**Dashboard**：
+- 「扫描目录」按钮 + 弹窗（路径输入、三态、注册按钮）
+- 已注册项目显示「已注册」并禁用重复注册

@@ -660,3 +660,42 @@ PROGRESS_BOARD.md 中已标记完成的任务：
 ### 进度更新
 PROGRESS_BOARD.md 中已标记完成的任务：
 - [x] P0-3.1 Settings.jsx LLM API 配置区块
+
+---
+
+## 会话21：V2 P0-4 目录扫描与自动发现
+
+| 字段 | 内容 |
+|------|------|
+| 日期 | 2026-05-25 |
+| 所属Phase | V2 P0-4 |
+| 完成任务ID | P0-4.1, P0-4.2, P0-4.3, P0-4.4 |
+| 状态 | ✅完成 |
+
+### 新增文件
+- `signage-app/backend/engine/scanner.py` — DirectoryScanner 递归/浅层扫描
+- `signage-app/backend/api/scanner.py` — 扫描、注册、配置 API
+
+### 修改文件
+- `signage-app/backend/main.py` — 注册 scanner 路由
+- `signage-app/backend/config.json` — 添加 scanner 配置段
+- `signage-app/frontend/src/pages/Dashboard.jsx` — 扫描目录弹窗与注册
+- `PROGRESS_BOARD.md` — 标记 V2 P0-4 完成
+
+### 实现的功能
+1. **扫描规则**：文件夹内含 .xlsx（排除 ~$ 临时文件）视为项目目录
+2. **scan / quick_scan**：递归与限定深度两种模式，只读不写
+3. **API**：config 读取默认目录；scan 返回项目列表；register 创建项目卡片
+4. **Dashboard**：扫描目录按钮、路径输入、Loading/Empty/Error 三态、逐项注册
+
+### 下一步建议
+1. 在设置页可编辑 watch_dirs（或沿用 config.json 手动配置）
+2. 接入 `/api/chat/stream` 流式对话
+3. MergePreview 前端接入兔钉合并 API
+
+### 进度更新
+PROGRESS_BOARD.md 中已标记完成的任务：
+- [x] P0-4.1 scanner.py
+- [x] P0-4.2 api/scanner.py
+- [x] P0-4.3 Dashboard.jsx
+- [x] P0-4.4 config.json scanner 段
