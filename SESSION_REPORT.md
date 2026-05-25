@@ -624,3 +624,39 @@ PROGRESS_BOARD.md 中已标记完成的任务：
 PROGRESS_BOARD.md 中已标记完成的任务：
 - [x] T03.1 merge_engine.py
 - [x] T03.2 merge.py API
+
+---
+
+## 会话20：V2 P0-3 多 API 配置前端接入
+
+| 字段 | 内容 |
+|------|------|
+| 日期 | 2026-05-25 |
+| 所属Phase | V2 P0-3 |
+| 完成任务ID | P0-3.1 |
+| 状态 | ✅完成 |
+
+### 修改文件
+- `signage-app/frontend/src/pages/Settings.jsx` — 新增「LLM API 配置」区块，替换旧单条 LLM 表单
+- `PROGRESS_BOARD.md` — 标记 V2 P0-3 完成
+
+### 实现的功能
+1. **API 列表**：从 GET `/api/api-configs` 加载，展示名称/模型/base_url/启用开关，default_api 高亮
+2. **添加/编辑弹窗**：name、base_url、api_key（password）、model、enabled；新建自动生成 id
+3. **操作**：添加、编辑、删除（confirm）、列表内启用开关切换
+4. **重新加载**：刷新 API 列表并调用 settings reload 同步配置
+5. **三态**：Loading / 空状态 / 错误+重试
+6. **兼容**：模块开关、匹配规则滑块、工作流程、清单模板等功能未改动
+
+### 说明
+- 后端实际端点为 `/api/api-configs`（与 CURSOR_V2_P03.md 中 `/api/llm-configs` 命名不同，前端已对接现有后端）
+- 重新加载通过列表刷新 + `/api/settings/reload` 实现（后端暂无独立 llm-configs/reload 端点）
+
+### 下一步建议
+1. 配置真实 API Key 后，在对话页接入 `/api/chat/stream` 流式对话
+2. 前端 MergePreview 接入兔钉合并 API
+3. 可选：后端增加 `/api/api-configs/reload` 专用于清除 llm_engine 缓存
+
+### 进度更新
+PROGRESS_BOARD.md 中已标记完成的任务：
+- [x] P0-3.1 Settings.jsx LLM API 配置区块

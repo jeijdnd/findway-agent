@@ -19,6 +19,7 @@
 | V2 T01 | Electron桌面壳 | 5 | ✅ 完成 |
 | V2 T02 | LLM对话引擎 + 多API后端 | 4 | ✅ 完成 |
 | V2 T03 | 兔钉清单合并引擎 | 2 | ✅ 完成 |
+| V2 P0-3 | 多API配置前端接入 | 1 | ✅ 完成 |
 
 ---
 
@@ -211,3 +212,24 @@
 - `POST /api/merge/preview` — 上传兔钉+清单，返回 MergeResult（不写入）
 - `POST /api/merge/apply` — 合并并生成新清单文件
 - `GET /api/merge/templates` — 扫描可用清单模板列表
+
+---
+
+## V2 升级：多 API 配置前端（会话20）
+
+### V2 P0-3：多 API 配置前端接入
+
+| ID | 任务 | 状态 | 备注 |
+|----|------|------|------|
+| P0-3.1 | Settings.jsx — LLM API 配置区块 | ✅ | 列表/表单/CRUD/重载；对接 `/api/api-configs` |
+
+### V2 P0-3 完成说明
+
+**Settings 页 LLM API 配置**：
+- GET `/api/api-configs` 展示 API 列表（名称、模型、base_url、启用开关）
+- 当前 `default_api` 高亮「当前激活」
+- 弹窗表单：name / base_url / api_key（password）/ model / enabled
+- POST/PUT/DELETE `/api/api-configs` 增删改
+- 「重新加载配置」：刷新列表 + `/api/settings/reload` 同步 default_api
+- Loading / Empty / Error+重试 三态
+- 保留模块开关、匹配规则滑块等原有功能
