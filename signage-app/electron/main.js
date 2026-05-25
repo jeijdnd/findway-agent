@@ -217,6 +217,21 @@ function setupIPC() {
     return app.getVersion();
   });
 
+  ipcMain.handle('show-confirm-dialog', async (_event, options = {}) => {
+    const parent = mainWindow && !mainWindow.isDestroyed() ? mainWindow : null;
+    const result = await dialog.showMessageBox(parent, {
+      type: 'question',
+      buttons: [options.confirmText || '允许', options.cancelText || '拒绝'],
+      defaultId: 0,
+      cancelId: 1,
+      noLink: true,
+      title: options.title || '操作确认',
+      message: options.message || '',
+      detail: options.detail || '',
+    });
+    return result.response === 0;
+  });
+
   ipcMain.on('send-maximize-change', (event, isMaximized) => {
     if (mainWindow) {
       mainWindow.webContents.send('window-maximize-change', isMaximized);

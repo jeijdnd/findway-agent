@@ -34,6 +34,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getAppVersion: () => {
     return ipcRenderer.invoke('get-app-version');
   },
+
+  /**
+   * 显示原生确认对话框
+   * @param {Object} options - { title, message, detail, confirmText, cancelText }
+   * @returns {Promise<boolean>} 用户是否点击允许
+   */
+  showConfirmDialog: (options) => {
+    return ipcRenderer.invoke('show-confirm-dialog', options);
+  },
   
   /**
    * 监听Python后端状态

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { requestFileOperationPermission } from '../utils/filePermission'
 
 function Dashboard() {
   const [projects, setProjects] = useState([])
@@ -89,13 +90,23 @@ function Dashboard() {
       setScanResults(null)
       setScanMessage('')
 
+      const permission = await requestFileOperationPermission(root, 'scan')
+      if (!permission.granted) {
+        setScanError(permission.message || '您已拒绝此操作，已取消。')
+        return
+      }
+
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), 60000)
 
       const response = await fetch('/api/scanner/scan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ root_path: root, quick: false }),
+        body: JSON.stringify({
+          root_path: root,
+          quick: false,
+          permission_id: permission.permission_id,
+        }),
         signal: controller.signal,
       })
       clearTimeout(timeoutId)
@@ -121,6 +132,13 @@ function Dashboard() {
     try {
       setRegisteringPath(item.path)
       setScanMessage('')
+
+      const permission = await requestFileOperationPermission(item.path, 'write')
+      if (!permission.granted) {
+        setScanMessage(permission.message || '您已拒绝注册操作，已取消。')
+        return
+      }
+
       const response = await fetch('/api/scanner/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -128,6 +146,7 @@ function Dashboard() {
           name: item.name,
           path: item.path,
           notes: `扫描注册，目录：${item.path}`,
+          permission_id: permission.permission_id,
         }),
       })
       if (!response.ok) {
