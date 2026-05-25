@@ -94,11 +94,17 @@ function startPythonBackend() {
     pythonProcess.on('error', (err) => {
       console.error('启动Python后端失败:', err);
       pythonProcess = null;
-      dialog.showErrorBox('Backend Error', err.message);
+      dialog.showErrorBox(
+        '后端启动失败',
+        `无法启动 Python 后端：${err.message}\n\n请检查 Python 是否已安装，并运行 install.bat 创建虚拟环境。`
+      );
     });
   } catch (err) {
     console.error('startPythonBackend failed:', err);
-    dialog.showErrorBox('Backend Error', err.message);
+    dialog.showErrorBox(
+      '后端启动失败',
+      `无法启动 Python 后端：${err.message}\n\n请检查 Python 是否已安装，并运行 install.bat 创建虚拟环境。`
+    );
   }
 }
 
@@ -128,46 +134,66 @@ function stopPythonBackend() {
   }
 }
 
+const BACKEND_HEALTH_URL = 'http://127.0.0.1:8765/api/health';
+const BACKEND_WAIT_TIMEOUT_MS = 60000;
+const BACKEND_POLL_INTERVAL_MS = 500;
+
 /**
- * 等待Python后端启动
- * 轮询GET http://127.0.0.1:8765/api/health
- * 最多30次，间隔500ms
- * @returns {Promise<boolean>} 是否启动成功
+ * HTTP 健康检查：GET /api/health，响应 body 含 status:"ok" 才算就绪
+ * @returns {Promise<boolean>}
+ */
+async function checkBackendHealth() {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 3000);
+  try {
+    const response = await fetch(BACKEND_HEALTH_URL, {
+      method: 'GET',
+      signal: controller.signal,
+      headers: { Accept: 'application/json' }
+    });
+    if (!response.ok) return false;
+
+    const text = await response.text();
+    const data = JSON.parse(text);
+    return data && data.status === 'ok';
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+/**
+ * 等待 Python 后端启动（轮询 HTTP 健康检查，不只看进程是否存活）
+ * @returns {Promise<{ ready: boolean, reason?: 'timeout' | 'exited' }>}
  */
 async function waitForPythonBackend() {
-  const maxAttempts = 30;
-  const interval = 500; // 毫秒
-  const healthUrl = 'http://127.0.0.1:8765/api/health';
-  
-  console.log(`等待Python后端启动，最多尝试${maxAttempts}次...`);
-  
+  const maxAttempts = Math.ceil(BACKEND_WAIT_TIMEOUT_MS / BACKEND_POLL_INTERVAL_MS);
+  const waitSeconds = BACKEND_WAIT_TIMEOUT_MS / 1000;
+
+  console.log(`等待 Python 后端就绪（轮询 ${BACKEND_HEALTH_URL}，最长 ${waitSeconds} 秒）...`);
+
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    try {
-      // 使用fetch请求健康检查接口
-      const response = await fetch(healthUrl, {
-        method: 'GET',
-        signal: AbortSignal.timeout(2000) // 2秒超时
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        console.log(`Python后端启动成功 (尝试${attempt}/${maxAttempts}):`, data);
-        return true;
-      }
-    } catch (error) {
-      // 忽略连接错误（后端可能还在启动）
-      if (attempt % 10 === 0) {
-        console.log(`尝试${attempt}/${maxAttempts}: 后端尚未就绪...`);
-      }
+    if (!pythonProcess) {
+      console.error('Python 后端进程已退出，健康检查中止');
+      return { ready: false, reason: 'exited' };
     }
-    
-    // 等待间隔
-    await new Promise(resolve => setTimeout(resolve, interval));
+
+    const healthy = await checkBackendHealth();
+    if (healthy) {
+      console.log(`Python 后端就绪（第 ${attempt}/${maxAttempts} 次检查）`);
+      return { ready: true };
+    }
+
+    if (attempt % 10 === 0) {
+      console.log(`后端启动中...（${attempt}/${maxAttempts}，已等待约 ${Math.round(attempt * BACKEND_POLL_INTERVAL_MS / 1000)} 秒）`);
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, BACKEND_POLL_INTERVAL_MS));
   }
-  
-  // 超时未启动成功
-  console.error(`Python后端启动超时（${maxAttempts * interval / 1000}秒）`);
-  return false;
+
+  console.error(`Python 后端健康检查超时（${waitSeconds} 秒）`);
+  return { ready: false, reason: 'timeout' };
 }
 
 /**
@@ -385,24 +411,23 @@ app.whenReady().then(async () => {
     // 启动Python后端
     startPythonBackend();
 
-    // 等待Python后端启动
-    const backendReady = await waitForPythonBackend();
+    // 等待 Python 后端 HTTP 健康检查通过
+    const backendResult = await waitForPythonBackend();
 
-    if (!backendReady) {
-      // 后端启动失败，显示错误对话框
-      dialog.showErrorBox(
-        'Backend Error',
-        'Python backend failed to start.\n\nCheck:\n1. Python is installed\n2. Run install.bat to create venv\n3. Port 8765 is not in use'
-      );
-
+    if (!backendResult.ready) {
+      const isTimeout = backendResult.reason === 'timeout';
       const result = dialog.showMessageBoxSync({
-        type: 'error',
-        title: 'Startup Failed',
-        message: 'Python backend failed to start',
-        detail: 'Cannot connect to http://127.0.0.1:8765/api/health',
-        buttons: ['OK', 'Retry'],
-        defaultId: 0,
-        cancelId: 1
+        type: isTimeout ? 'warning' : 'error',
+        title: isTimeout ? '后端启动较慢' : '后端启动失败',
+        message: isTimeout
+          ? '后端启动较慢，请重试'
+          : 'Python 后端进程已退出',
+        detail: isTimeout
+          ? `在 ${BACKEND_WAIT_TIMEOUT_MS / 1000} 秒内无法访问 ${BACKEND_HEALTH_URL}（期望 {"status":"ok"}）。\n\n可能原因：\n1. 首次启动较慢，请再试一次\n2. 请先运行 install.bat 创建虚拟环境\n3. 端口 8765 被占用`
+          : `Python 进程在健康检查完成前已退出。\n\n请检查：\n1. Python 是否已安装\n2. 运行 install.bat 创建 venv\n3. 查看控制台中的 [Python后端错误] 日志`,
+        buttons: ['退出', '重试'],
+        defaultId: 1,
+        cancelId: 0
       });
 
       if (result === 1) {
