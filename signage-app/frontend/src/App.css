@@ -633,3 +633,76 @@
   flex: 1;
   min-width: 0;
 }
+
+/* 文件权限确认弹窗 */
+.permission-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.permission-confirm-dialog {
+  width: 100%;
+  max-width: 440px;
+  background: var(--white);
+  border-radius: 10px;
+  padding: 20px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+.permission-confirm-title {
+  margin: 0 0 12px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.permission-confirm-message {
+  margin: 0 0 8px;
+  font-size: 14px;
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.permission-confirm-detail {
+  margin: 0 0 16px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  word-break: break-all;
+  line-height: 1.4;
+}
+
+.permission-confirm-remember {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.permission-confirm-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.permission-confirm-cancel {
+  padding: 8px 16px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--white);
+  font-size: 14px;
+  cursor: pointer;
+  color: var(--text-secondary);
+}
+
+.permission-confirm-cancel:hover {
+  background: var(--bg);
+}

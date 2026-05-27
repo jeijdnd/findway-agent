@@ -12,6 +12,7 @@ from datetime import datetime, timedelta
 
 from backend.engine.scanner import DirectoryScanner
 from backend.api.projects import load_projects, save_projects, ProjectResponse
+from backend.services.app_data import get_app_data_dir
 
 router = APIRouter()
 
@@ -23,6 +24,7 @@ DEFAULT_SCANNER = {
 }
 
 PERMISSION_TTL_MINUTES = 30
+REMEMBERABLE_OPERATIONS = frozenset({"scan", "read"})
 OPERATION_LABELS = {
     "scan": "扫描",
     "read": "读取",
@@ -32,6 +34,94 @@ OPERATION_LABELS = {
 scanner_engine = DirectoryScanner()
 _pending_permissions: Dict[str, Dict[str, Any]] = {}
 _granted_permissions: Dict[str, Dict[str, Any]] = {}
+
+
+def _remembered_permissions_path() -> str:
+    return os.path.join(get_app_data_dir(), "remembered_permissions.json")
+
+
+def _load_remembered_permissions() -> Dict[str, List[str]]:
+    default: Dict[str, List[str]] = {"scan": [], "read": []}
+    path = _remembered_permissions_path()
+    if not os.path.exists(path):
+        return default
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return default
+    result = dict(default)
+    for op in REMEMBERABLE_OPERATIONS:
+        raw = data.get(op) or []
+        result[op] = [
+            os.path.normpath(str(p).strip())
+            for p in raw
+            if str(p).strip()
+        ]
+    return result
+
+
+def _save_remembered_permissions(data: Dict[str, List[str]]) -> None:
+    payload = {op: data.get(op, []) for op in REMEMBERABLE_OPERATIONS}
+    path = _remembered_permissions_path()
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(payload, f, ensure_ascii=False, indent=2)
+
+
+def _path_covered_by_grant(norm_path: str, norm_grant: str) -> bool:
+    return norm_path == norm_grant or norm_path.startswith(norm_grant + os.sep)
+
+
+def _is_remembered_for_path(path: str, operation: str) -> bool:
+    if operation not in REMEMBERABLE_OPERATIONS:
+        return False
+    norm_path = os.path.normpath(path.strip())
+    remembered = _load_remembered_permissions()
+    for rem in remembered.get(operation, []):
+        if _path_covered_by_grant(norm_path, os.path.normpath(rem)):
+            return True
+    return False
+
+
+def _add_remembered_permission(operation: str, path: str) -> None:
+    if operation not in REMEMBERABLE_OPERATIONS:
+        return
+    data = _load_remembered_permissions()
+    norm = os.path.normpath(path.strip())
+    paths = data.setdefault(operation, [])
+    if norm not in paths:
+        paths.append(norm)
+        _save_remembered_permissions(data)
+
+
+def _remove_remembered_permission(operation: str, path: str) -> bool:
+    if operation not in REMEMBERABLE_OPERATIONS:
+        return False
+    data = _load_remembered_permissions()
+    norm = os.path.normpath(path.strip())
+    paths = data.get(operation, [])
+    if norm not in paths:
+        return False
+    paths.remove(norm)
+    data[operation] = paths
+    _save_remembered_permissions(data)
+    return True
+
+
+def _grant_session_permission(path: str, operation: str, from_remembered: bool = False) -> str:
+    request_id = str(uuid.uuid4())
+    expires_at = datetime.now() + timedelta(
+        days=36500 if from_remembered else 0,
+        minutes=0 if from_remembered else PERMISSION_TTL_MINUTES,
+    )
+    _granted_permissions[request_id] = {
+        "path": path,
+        "operation": operation,
+        "granted": True,
+        "expires_at": expires_at.isoformat(),
+        "from_remembered": from_remembered,
+    }
+    return request_id
 
 
 def _load_config() -> dict:
@@ -54,17 +144,17 @@ def _cleanup_expired_permissions() -> None:
 
 def _check_permission(permission_id: str, path: str, operation: str) -> bool:
     _cleanup_expired_permissions()
-    grant = _granted_permissions.get(permission_id)
-    if not grant or not grant.get("granted"):
-        return False
-    if grant.get("operation") != operation:
-        return False
-
     norm_path = os.path.normpath(path.strip())
-    norm_grant = os.path.normpath(grant["path"])
-    if norm_path != norm_grant and not norm_path.startswith(norm_grant + os.sep):
-        return False
-    return True
+
+    grant = _granted_permissions.get(permission_id)
+    if grant and grant.get("granted") and grant.get("operation") == operation:
+        norm_grant = os.path.normpath(grant["path"])
+        if _path_covered_by_grant(norm_path, norm_grant):
+            return True
+
+    if operation in REMEMBERABLE_OPERATIONS and _is_remembered_for_path(path, operation):
+        return True
+    return False
 
 
 class PermissionRequest(BaseModel):
@@ -75,6 +165,12 @@ class PermissionRequest(BaseModel):
 class PermissionConfirm(BaseModel):
     request_id: str
     granted: bool
+    remember: bool = False
+
+
+class RememberedRevokeRequest(BaseModel):
+    operation: str
+    path: str
 
 
 class ScanRequest(BaseModel):
@@ -158,8 +254,22 @@ async def request_permission(body: PermissionRequest):
     if not path:
         raise HTTPException(status_code=400, detail="请提供有效的目录路径")
 
-    request_id = str(uuid.uuid4())
     op_label = OPERATION_LABELS[operation]
+    rememberable = operation in REMEMBERABLE_OPERATIONS
+
+    if rememberable and _is_remembered_for_path(path, operation):
+        request_id = _grant_session_permission(path, operation, from_remembered=True)
+        return {
+            "request_id": request_id,
+            "path": path,
+            "operation": operation,
+            "granted": True,
+            "requires_confirmation": False,
+            "rememberable": True,
+            "message": f"已使用记住的{op_label}授权: {path}",
+        }
+
+    request_id = str(uuid.uuid4())
     _pending_permissions[request_id] = {
         "path": path,
         "operation": operation,
@@ -173,6 +283,7 @@ async def request_permission(body: PermissionRequest):
         "operation": operation,
         "granted": False,
         "requires_confirmation": True,
+        "rememberable": rememberable,
         "message": f"AI 请求{op_label}目录: {path}",
         "prompt_title": "文件操作确认",
         "prompt_message": f"允许 AI {op_label}以下目录吗？",
@@ -191,6 +302,12 @@ async def confirm_permission(body: PermissionConfirm):
     op_label = OPERATION_LABELS.get(pending["operation"], pending["operation"])
 
     if body.granted:
+        if (
+            body.remember
+            and pending["operation"] in REMEMBERABLE_OPERATIONS
+        ):
+            _add_remembered_permission(pending["operation"], pending["path"])
+
         expires_at = datetime.now() + timedelta(minutes=PERMISSION_TTL_MINUTES)
         _granted_permissions[body.request_id] = {
             **pending,
@@ -200,6 +317,7 @@ async def confirm_permission(body: PermissionConfirm):
         return {
             "request_id": body.request_id,
             "granted": True,
+            "remembered": bool(body.remember),
             "message": f"已授权{op_label}目录: {pending['path']}",
             "expires_at": expires_at.isoformat(),
         }
@@ -209,6 +327,42 @@ async def confirm_permission(body: PermissionConfirm):
         "granted": False,
         "message": f"您已拒绝{op_label}操作，AI 无法访问该目录。",
     }
+
+
+@router.get("/api/scanner/remembered-permissions")
+async def list_remembered_permissions():
+    """列出已记住的只读授权"""
+    data = _load_remembered_permissions()
+    permissions = []
+    for operation in sorted(REMEMBERABLE_OPERATIONS):
+        for path in data.get(operation, []):
+            permissions.append({
+                "operation": operation,
+                "path": path,
+                "label": OPERATION_LABELS.get(operation, operation),
+            })
+    return {"permissions": permissions}
+
+
+@router.delete("/api/scanner/remembered-permissions")
+async def clear_remembered_permissions():
+    """清除全部已记住的只读授权"""
+    _save_remembered_permissions({"scan": [], "read": []})
+    return {"success": True, "message": "已清除全部记住的授权"}
+
+
+@router.post("/api/scanner/remembered-permissions/revoke")
+async def revoke_remembered_permission(body: RememberedRevokeRequest):
+    """撤销单条已记住的授权"""
+    operation = body.operation.strip().lower()
+    if operation not in REMEMBERABLE_OPERATIONS:
+        raise HTTPException(status_code=400, detail=f"不支持的操作类型: {operation}")
+    path = os.path.normpath(body.path.strip())
+    if not path:
+        raise HTTPException(status_code=400, detail="请提供有效的目录路径")
+    if not _remove_remembered_permission(operation, path):
+        raise HTTPException(status_code=404, detail="未找到该记住的授权")
+    return {"success": True, "message": "已撤销该授权"}
 
 
 @router.get("/api/scanner/list-subdirs")

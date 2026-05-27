@@ -1,6 +1,9 @@
 /**
- * 文件操作权限：先向后端申请，再通过 Electron/浏览器弹窗让用户确认
+ * 文件操作权限：先向后端申请，再通过弹窗让用户确认
+ * 只读操作可「记住授权」；写入操作每次确认
  */
+
+import { showPermissionConfirmDialog } from './permissionDialog'
 
 const OPERATION_LABELS = {
   scan: '扫描',
@@ -21,10 +24,20 @@ export async function requestFileOperationPermission(path, operation = 'scan') {
   }
 
   const data = await response.json()
-  const opLabel = OPERATION_LABELS[operation] || operation
 
+  if (data.granted && data.requires_confirmation === false) {
+    return {
+      granted: true,
+      permission_id: data.request_id,
+      message: data.message || '已授权（记住的权限）',
+    }
+  }
+
+  const opLabel = OPERATION_LABELS[operation] || operation
   let granted = false
-  if (window.electronAPI?.showConfirmDialog) {
+  let remember = false
+
+  if (window.electronAPI?.showConfirmDialog && !data.rememberable) {
     granted = await window.electronAPI.showConfirmDialog({
       title: data.prompt_title || '文件操作确认',
       message: data.prompt_message || `允许 AI ${opLabel}以下目录吗？`,
@@ -32,6 +45,15 @@ export async function requestFileOperationPermission(path, operation = 'scan') {
       confirmText: '允许',
       cancelText: '拒绝',
     })
+  } else if (data.rememberable) {
+    const result = await showPermissionConfirmDialog({
+      title: data.prompt_title || '文件操作确认',
+      message: data.prompt_message || `允许 AI ${opLabel}以下目录吗？`,
+      detail: data.prompt_detail || path,
+      rememberable: true,
+    })
+    granted = result.granted
+    remember = result.remember
   } else {
     granted = window.confirm(
       `${data.prompt_message || `允许 AI ${opLabel}以下目录吗？`}\n\n${data.prompt_detail || path}`
@@ -41,7 +63,11 @@ export async function requestFileOperationPermission(path, operation = 'scan') {
   const confirmResponse = await fetch('/api/scanner/confirm-permission', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ request_id: data.request_id, granted }),
+    body: JSON.stringify({
+      request_id: data.request_id,
+      granted,
+      remember: remember && granted,
+    }),
   })
 
   if (!confirmResponse.ok) {
