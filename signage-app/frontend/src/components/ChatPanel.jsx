@@ -16,6 +16,28 @@ function resolveScanDirectoryPath(responseBody) {
   return typeof path === 'string' && path.trim() ? path.trim() : null
 }
 
+const SCAN_SUMMARY_USER_MESSAGE =
+  '扫描已完成。请根据上一条系统消息中的真实目录列表，向用户用简洁清晰的中文总结扫描结果，突出项目文件夹；不要编造任何未出现在列表中的目录或项目名称。'
+
+/** 将 list-subdirs 真实结果格式化为注入 LLM 上下文的 system 内容 */
+function formatScanResultForLlm(rootPath, dirs) {
+  const projectDirs = dirs.filter((d) => d.is_project)
+  const lines = [
+    `扫描根目录：${rootPath}`,
+    `共 ${dirs.length} 个文件夹，其中含 Excel 清单的项目文件夹 ${projectDirs.length} 个。`,
+    '',
+    '真实目录列表（仅供引用，不得编造未列出的名称）：',
+  ]
+  dirs.forEach((d, index) => {
+    const tag = d.is_project ? ' [项目]' : ''
+    const pathInfo = d.path ? `，路径：${d.path}` : ''
+    lines.push(
+      `- ${index + 1}.${d.name}${tag} (深度${d.depth ?? 0}, 文件${d.file_count ?? 0}${pathInfo})`
+    )
+  })
+  return lines.join('\n')
+}
+
 function isWelcomeOnly(messages) {
   return (
     messages.length === 1 &&
@@ -121,24 +143,55 @@ function ChatPanel({ onAction, chatId, onChatIdChange, onHistoryChange, newChatS
     }
   }, [newChatSignal])
 
-  const formatListSubdirsReply = (rootPath, dirs) => {
-    const projectDirs = dirs.filter((d) => d.is_project)
-    const lines = [
-      `目录「${rootPath}」下列出 ${dirs.length} 个文件夹（含子目录）：`,
-      `其中含 Excel 清单的项目文件夹 ${projectDirs.length} 个。`,
-      '',
-    ]
-    const preview = dirs.slice(0, 30)
-    preview.forEach((d) => {
-      const indent = '  '.repeat(Math.min(d.depth || 0, 6))
-      const tag = d.is_project ? ' [项目]' : ''
-      lines.push(`${indent}• ${d.name}${tag} (深度${d.depth}, 文件${d.file_count})`)
-    })
-    if (dirs.length > 30) {
-      lines.push(`… 另有 ${dirs.length - 30} 个目录未显示`)
-    }
-    return lines.join('\n')
-  }
+  /** 扫描完成后：写入 system 上下文 → 再调 LLM 基于真实列表组织回复 */
+  const requestLlmScanSummary = useCallback(
+    async (rootPath, dirs, currentMessages, currentChatId) => {
+      const scanText = formatScanResultForLlm(rootPath, dirs)
+      const withSystem = [
+        ...currentMessages,
+        {
+          role: 'system',
+          content: `扫描完成，真实目录列表：\n${scanText}`,
+        },
+      ]
+      setMessages(withSystem)
+      let activeChatId = await syncHistory(withSystem, currentChatId)
+
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 60000)
+      try {
+        const response = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: SCAN_SUMMARY_USER_MESSAGE,
+            chat_id: activeChatId || undefined,
+          }),
+          signal: controller.signal,
+        })
+        clearTimeout(timeoutId)
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`)
+        }
+        const data = await response.json()
+
+        const assistantMessage = { role: 'assistant', content: data.reply }
+        const withLlmReply = [
+          ...withSystem,
+          { role: 'user', content: SCAN_SUMMARY_USER_MESSAGE },
+          assistantMessage,
+        ]
+        setMessages(withLlmReply)
+        activeChatId = data.data?.chat_id || activeChatId
+        await syncHistory(withLlmReply, activeChatId)
+        return activeChatId
+      } catch (err) {
+        clearTimeout(timeoutId)
+        throw err
+      }
+    },
+    [syncHistory]
+  )
 
   /**
    * scan_directory：request-permission → 确认框 → list-subdirs 或「已取消」
@@ -176,15 +229,12 @@ function ChatPanel({ onAction, chatId, onChatIdChange, onHistoryChange, newChatS
 
         const result = await listRes.json()
         const dirs = result.dirs || []
-        const summary = {
-          role: 'assistant',
-          content: formatListSubdirsReply(result.root_path || path, dirs),
-        }
-        const withResult = [...currentMessages, summary]
-        setMessages(withResult)
-        await syncHistory(withResult, currentChatId)
+        const rootPath = result.root_path || path
+
+        await requestLlmScanSummary(rootPath, dirs, currentMessages, currentChatId)
+
         if (onAction) {
-          onAction('open_scan', { path, dirs })
+          onAction('open_scan', { path: rootPath, dirs })
         }
       } catch (err) {
         const errMsg = {
@@ -196,7 +246,7 @@ function ChatPanel({ onAction, chatId, onChatIdChange, onHistoryChange, newChatS
         await syncHistory(withErr, currentChatId)
       }
     },
-    [syncHistory, onAction]
+    [syncHistory, onAction, requestLlmScanSummary]
   )
 
   const sendMessage = async () => {
@@ -237,7 +287,11 @@ function ChatPanel({ onAction, chatId, onChatIdChange, onHistoryChange, newChatS
 
       const scanPath = resolveScanDirectoryPath(data)
       if (scanPath) {
-        await handleScanDirectory(scanPath, messagesAfterReply, activeChatId)
+        try {
+          await handleScanDirectory(scanPath, messagesAfterReply, activeChatId)
+        } finally {
+          setLoading(false)
+        }
         return
       }
 
@@ -267,11 +321,13 @@ function ChatPanel({ onAction, chatId, onChatIdChange, onHistoryChange, newChatS
   return (
     <>
       <div className="chat-messages">
-        {messages.map((msg, index) => (
-          <div key={index} className={`message ${msg.role}`}>
-            <div className="message-bubble">{msg.content}</div>
-          </div>
-        ))}
+        {messages
+          .filter((msg) => msg.role !== 'system')
+          .map((msg, index) => (
+            <div key={index} className={`message ${msg.role}`}>
+              <div className="message-bubble">{msg.content}</div>
+            </div>
+          ))}
         {loading && (
           <div className="message assistant">
             <div className="message-bubble">正在思考中...</div>
