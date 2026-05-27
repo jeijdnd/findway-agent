@@ -1,7 +1,7 @@
 {
   "name": "create_project",
   "version": "1.0.0",
-  "description": "创建新的标识设计项目并初始化工作区",
+  "description": "创建项目并添加到项目仪表盘中，需要 name 和 path 参数",
   "icon": "plus-square",
   "category": "项目管理",
   "entry": "main.py",
@@ -10,9 +10,13 @@
       "type": "string",
       "description": "项目名称"
     },
+    "path": {
+      "type": "string",
+      "description": "项目目录路径"
+    },
     "project_type": {
       "type": "string",
-      "description": "项目类型"
+      "description": "项目类型（学校/办公/住宅等，可选）"
     }
   }
 }

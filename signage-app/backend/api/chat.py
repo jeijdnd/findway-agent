@@ -71,6 +71,7 @@ def _ensure_llm_api_key(api_config_id: Optional[str] = None) -> Optional[str]:
 
 
 async def _execute_tool(name: str, args: Dict[str, Any]) -> Dict[str, Any]:
+    """执行技能；UI action 由 llm_engine._map_tool_to_ui_action 从返回值映射（如 create_project）。"""
     return await skill_manager.execute(name, **args)
 
 

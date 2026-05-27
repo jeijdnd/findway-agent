@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 const WELCOME_MESSAGE = {
   role: 'assistant',
@@ -50,10 +51,24 @@ async function persistChatHistory(chatId, messages) {
 }
 
 function ChatPanel({ onAction, chatId, onChatIdChange, onHistoryChange, newChatSignal }) {
+  const navigate = useNavigate()
   const [messages, setMessages] = useState([WELCOME_MESSAGE])
   const [inputValue, setInputValue] = useState('')
   const [loading, setLoading] = useState(false)
   const messagesEndRef = useRef(null)
+
+  const dispatchPanelAction = useCallback(
+    (action, data) => {
+      if (!action || !onAction) return
+      if (action === 'create_project' || action === 'open_dashboard_create') {
+        navigate('/')
+        onAction('create_project', data)
+        return
+      }
+      onAction(action, data)
+    },
+    [navigate, onAction]
+  )
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -147,8 +162,8 @@ function ChatPanel({ onAction, chatId, onChatIdChange, onHistoryChange, newChatS
       activeChatId = data.data?.chat_id || activeChatId
       activeChatId = await syncHistory(messagesAfterReply, activeChatId)
 
-      if (data.action && onAction) {
-        onAction(data.action, data.data)
+      if (data.action) {
+        dispatchPanelAction(data.action, data.data)
       }
     } catch (error) {
       let errorMsg = '发送失败，请检查后端是否启动'

@@ -267,9 +267,15 @@ function AppLayout() {
   }
 
   const handleAction = (action, data) => {
-    if (action === 'create_project') {
+    if (action === 'create_project' || action === 'open_dashboard_create') {
       setActiveTab('dashboard')
-      setRefreshKey((prev) => prev + 1)
+      setCommandTrigger({
+        type: 'new-project',
+        nonce: Date.now(),
+        projectName: data?.project_name || data?.suggested_name || '',
+        path: data?.path || '',
+        projectType: data?.project_type || '',
+      })
     } else if (action === 'search_old_project') {
       setActiveTab('matching')
       setRefreshKey((prev) => prev + 1)

@@ -57,6 +57,21 @@ function Dashboard({ commandTrigger }) {
       openScanModal()
     } else if (commandTrigger.type === 'new-project') {
       setShowForm(true)
+      const projectName = commandTrigger.projectName || ''
+      const projectPath = commandTrigger.path || ''
+      const projectType = commandTrigger.projectType || ''
+      if (projectName || projectPath || projectType) {
+        setFormData((prev) => ({
+          ...prev,
+          name: projectName || prev.name,
+          project_type: projectType || prev.project_type,
+          notes: projectPath
+            ? prev.notes.includes(projectPath)
+              ? prev.notes
+              : `项目路径：${projectPath}${prev.notes ? `\n${prev.notes}` : ''}`
+            : prev.notes,
+        }))
+      }
     }
   }, [commandTrigger])
 
