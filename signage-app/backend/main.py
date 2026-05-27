@@ -23,6 +23,7 @@ from backend.api.scanner import router as scanner_router
 from backend.api.chat_history import router as chat_history_router
 from backend.api.logs import router as logs_router
 from backend.api.skills import router as skills_router
+from backend.api.safety import router as safety_router
 from backend.services.error_log_service import log_exception
 
 app = FastAPI(
@@ -59,6 +60,7 @@ app.include_router(merge_router)
 app.include_router(scanner_router)
 app.include_router(logs_router)
 app.include_router(skills_router)
+app.include_router(safety_router)
 
 
 def _request_endpoint(request: Request) -> str:

@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import ToolDiscoveryCards from './ToolDiscoveryCards'
+import SafetyBlockedCard from './SafetyBlockedCard'
 
 const WELCOME_MESSAGE = {
   role: 'assistant',
@@ -162,6 +163,7 @@ function ChatPanel({ onAction, chatId, onChatIdChange, onHistoryChange, newChatS
         content: data.reply,
         toolDiscovery: data.data?.tool_discovery || null,
         suggestGithubSearch: data.data?.suggest_github_search || false,
+        safetyBlocked: data.data?.safety_blocked || null,
       }
       const messagesAfterReply = [...messagesAfterUser, assistantMessage]
       setMessages(messagesAfterReply)
@@ -234,6 +236,20 @@ function ChatPanel({ onAction, chatId, onChatIdChange, onHistoryChange, newChatS
                     {
                       role: 'assistant',
                       content: `技能已安装。你可以重新描述需求，我将尝试使用新工具。`,
+                    },
+                  ])
+                }}
+              />
+            )}
+            {msg.safetyBlocked && (
+              <SafetyBlockedCard
+                blocked={msg.safetyBlocked}
+                onBypassSuccess={(result) => {
+                  setMessages((prev) => [
+                    ...prev,
+                    {
+                      role: 'assistant',
+                      content: result.message || '操作已放行并执行完成。',
                     },
                   ])
                 }}

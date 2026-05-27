@@ -16,6 +16,7 @@ from backend.api.chat_history import (
 from backend.services.chat_log_service import append_chat_log
 from backend.services.project_memory import project_memory
 from backend.skills import skill_manager
+from backend.services.safety_auditor import safety_auditor
 
 router = APIRouter()
 
@@ -70,9 +71,35 @@ def _ensure_llm_api_key(api_config_id: Optional[str] = None) -> Optional[str]:
     return resolved_id
 
 
-async def _execute_tool(name: str, args: Dict[str, Any]) -> Dict[str, Any]:
-    """执行技能；UI action 由 llm_engine._map_tool_to_ui_action 从返回值映射（如 create_project）。"""
+async def _execute_tool(
+    name: str,
+    args: Dict[str, Any],
+    api_config_id: Optional[str] = None,
+    user_bypass: bool = False,
+) -> Dict[str, Any]:
+    """Agent A 执行前经 Agent B（safety_auditor）审核。"""
+    audit = await safety_auditor.audit(
+        name, args, user_bypass=user_bypass, api_config_id=api_config_id
+    )
+    if not audit.allowed:
+        return {
+            "success": False,
+            "blocked": True,
+            "audit_id": audit.audit_id,
+            "reason": audit.reason,
+            "risk_level": audit.risk_level,
+            "skill_name": name,
+            "parameters": args,
+            "message": f"操作被安全审核拦截: {audit.reason}",
+        }
     return await skill_manager.execute(name, **args)
+
+
+def _make_tool_executor(api_config_id: Optional[str] = None):
+    async def _executor(name: str, args: Dict[str, Any]) -> Dict[str, Any]:
+        return await _execute_tool(name, args, api_config_id=api_config_id)
+
+    return _executor
 
 
 def _primary_action(actions: List[str]) -> Optional[str]:
@@ -122,11 +149,18 @@ async def chat(request: ChatRequest):
             history=history_dicts,
             api_config_id=api_config_id,
             project_id=request.project_id,
-            tool_executor=_execute_tool,
+            tool_executor=_make_tool_executor(api_config_id),
         )
         reply = result.reply
         action = _primary_action(result.actions)
         action_data = dict(result.action_data)
+        if action_data.get("safety_blocked"):
+            resp_blocked = action_data["safety_blocked"]
+            if not reply or "拦截" not in reply:
+                reply = (
+                    reply
+                    + f"\n\n⚠ 安全审核拦截: {resp_blocked.get('reason', '')}"
+                ).strip()
 
         project_memory.append_exchange(
             request.project_id, request.message, reply
@@ -151,6 +185,8 @@ async def chat(request: ChatRequest):
         if result.action_data.get("suggest_github_search"):
             resp_data["suggest_github_search"] = True
             resp_data["missing_tool"] = result.action_data.get("missing_tool")
+        if result.action_data.get("safety_blocked"):
+            resp_data["safety_blocked"] = result.action_data["safety_blocked"]
 
         _record_chat_log(
             request.message, reply, saved.get("id"), action, resp_data
@@ -192,7 +228,7 @@ async def chat_stream(request: StreamChatRequest):
                 history=history_dicts,
                 api_config_id=api_config_id,
                 project_id=request.project_id,
-                tool_executor=_execute_tool,
+                tool_executor=_make_tool_executor(api_config_id),
             )
             full_reply = result.reply
             for char in full_reply:
@@ -227,6 +263,8 @@ async def chat_stream(request: StreamChatRequest):
                 }
             if result.action_data.get("suggest_github_search"):
                 metadata["suggest_github_search"] = True
+            if result.action_data.get("safety_blocked"):
+                metadata["safety_blocked"] = result.action_data["safety_blocked"]
             yield f'data: {json.dumps({"type": "done", "metadata": metadata}, ensure_ascii=False)}\n\n'
 
         except Exception as e:

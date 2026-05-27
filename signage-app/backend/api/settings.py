@@ -46,7 +46,16 @@ DEFAULT_CONFIG = {
         "api_key": "",
         "base_url": "https://api.openai.com/v1",
         "model": "gpt-4o-mini"
-    }
+    },
+    "safety": {
+        "strictness": "standard",
+        "rules_enabled": {
+            "danger_patterns": True,
+            "restricted_dirs": True,
+            "write_operations": True,
+            "llm_review": True,
+        },
+    },
 }
 
 class ModuleConfig(BaseModel):

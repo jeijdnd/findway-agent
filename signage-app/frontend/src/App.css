@@ -793,3 +793,48 @@
   font-size: 13px;
   padding: 6px 12px;
 }
+
+/* 安全拦截卡片 */
+.safety-blocked-card {
+  margin-top: 8px;
+  max-width: 95%;
+  background: #fffbeb;
+  border: 1px solid #fbbf24;
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+
+.safety-blocked-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #b45309;
+  margin-bottom: 6px;
+}
+
+.safety-blocked-reason {
+  font-size: 13px;
+  color: #92400e;
+  margin: 0 0 8px;
+  line-height: 1.4;
+}
+
+.safety-blocked-meta {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin: 0 0 10px;
+}
+
+.safety-bypass-btn {
+  font-size: 13px;
+  padding: 6px 14px;
+  background: #d97706;
+}
+
+.safety-bypass-btn:hover {
+  background: #b45309;
+}
+
+.safety-blocked-msg {
+  font-size: 12px;
+  margin: 8px 0 0;
+}

@@ -283,6 +283,15 @@ class LLMEngine:
                     action_data["missing_tool"] = result.get("missing_tool")
                     action_data["suggest_github_search"] = True
 
+                if result.get("blocked"):
+                    action_data["safety_blocked"] = {
+                        "audit_id": result.get("audit_id"),
+                        "reason": result.get("reason"),
+                        "risk_level": result.get("risk_level"),
+                        "skill_name": result.get("skill_name"),
+                        "parameters": result.get("parameters"),
+                    }
+
                 ui_action, ui_data = self._map_tool_to_ui_action(name, result)
                 if ui_action and ui_action not in actions:
                     actions.append(ui_action)
