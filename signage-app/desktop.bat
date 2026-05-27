@@ -13,10 +13,5 @@ if not exist "venv\Scripts\python.exe" (
   exit /b 1
 )
 
-echo [INFO] Starting FindWay Agent...
-call node_modules\.bin\electron.cmd .
-
-if errorlevel 1 (
-  echo [ERROR] Electron exited with an error.
-  pause
-)
+start /MIN "" "%~dp0node_modules\.bin\electron.cmd" .
+exit /b 0
