@@ -121,8 +121,27 @@ function ChatPanel({ onAction, chatId, onChatIdChange, onHistoryChange, newChatS
     }
   }, [newChatSignal])
 
+  const formatListSubdirsReply = (rootPath, dirs) => {
+    const projectDirs = dirs.filter((d) => d.is_project)
+    const lines = [
+      `目录「${rootPath}」下列出 ${dirs.length} 个文件夹（含子目录）：`,
+      `其中含 Excel 清单的项目文件夹 ${projectDirs.length} 个。`,
+      '',
+    ]
+    const preview = dirs.slice(0, 30)
+    preview.forEach((d) => {
+      const indent = '  '.repeat(Math.min(d.depth || 0, 6))
+      const tag = d.is_project ? ' [项目]' : ''
+      lines.push(`${indent}• ${d.name}${tag} (深度${d.depth}, 文件${d.file_count})`)
+    })
+    if (dirs.length > 30) {
+      lines.push(`… 另有 ${dirs.length - 30} 个目录未显示`)
+    }
+    return lines.join('\n')
+  }
+
   /**
-   * scan_directory：request-permission → 确认框 → scan 或「已取消」
+   * scan_directory：request-permission → 确认框 → list-subdirs 或「已取消」
    */
   const handleScanDirectory = useCallback(
     async (path, currentMessages, currentChatId) => {
@@ -138,33 +157,34 @@ function ChatPanel({ onAction, chatId, onChatIdChange, onHistoryChange, newChatS
 
         const controller = new AbortController()
         const timeoutId = setTimeout(() => controller.abort(), 60000)
-        const scanRes = await fetch('/api/scanner/scan', {
+        const listRes = await fetch('/api/scanner/list-subdirs', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            root_path: path,
+            path,
+            max_depth: 3,
             permission_id: permission.permission_id,
           }),
           signal: controller.signal,
         })
         clearTimeout(timeoutId)
 
-        if (!scanRes.ok) {
-          const errData = await scanRes.json().catch(() => ({}))
-          throw new Error(errData.detail || errData.message || `HTTP ${scanRes.status}`)
+        if (!listRes.ok) {
+          const errData = await listRes.json().catch(() => ({}))
+          throw new Error(errData.detail || errData.message || `HTTP ${listRes.status}`)
         }
 
-        const result = await scanRes.json()
-        const count = result.count ?? result.projects?.length ?? 0
+        const result = await listRes.json()
+        const dirs = result.dirs || []
         const summary = {
           role: 'assistant',
-          content: `扫描完成，在「${path}」下发现 ${count} 个项目。可在「项目仪表盘」中查看扫描结果。`,
+          content: formatListSubdirsReply(result.root_path || path, dirs),
         }
         const withResult = [...currentMessages, summary]
         setMessages(withResult)
         await syncHistory(withResult, currentChatId)
         if (onAction) {
-          onAction('open_scan', { path })
+          onAction('open_scan', { path, dirs })
         }
       } catch (err) {
         const errMsg = {

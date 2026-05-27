@@ -93,6 +93,45 @@ class RegisterRequest(BaseModel):
     permission_id: Optional[str] = None
 
 
+class ListSubdirsRequest(BaseModel):
+    path: str
+    max_depth: int = 3
+    permission_id: Optional[str] = None
+
+
+def _list_subdirs_with_permission(
+    root_path: str,
+    max_depth: int,
+    permission_id: Optional[str],
+) -> dict:
+    root_path = os.path.normpath(root_path.strip())
+    if not root_path:
+        raise HTTPException(status_code=400, detail="请提供有效的目录路径")
+
+    if not permission_id:
+        raise HTTPException(
+            status_code=403,
+            detail="未获得用户授权，操作已取消。请先确认权限。",
+        )
+
+    if not _check_permission(permission_id, root_path, "scan"):
+        raise HTTPException(
+            status_code=403,
+            detail="未获得用户授权或授权已过期，操作已取消。",
+        )
+
+    if not os.path.isdir(root_path):
+        raise HTTPException(
+            status_code=400,
+            detail=f"目录不存在或不可访问: {root_path}",
+        )
+
+    result = scanner_engine.list_subdirs(root_path, max_depth=max_depth)
+    if result.get("error"):
+        raise HTTPException(status_code=400, detail=result["error"])
+    return result
+
+
 @router.get("/api/scanner/config")
 async def get_scanner_config():
     """读取扫描配置（默认监控目录等）"""
@@ -170,6 +209,28 @@ async def confirm_permission(body: PermissionConfirm):
         "granted": False,
         "message": f"您已拒绝{op_label}操作，AI 无法访问该目录。",
     }
+
+
+@router.get("/api/scanner/list-subdirs")
+async def list_subdirs_get(
+    path: str,
+    max_depth: int = 3,
+    permission_id: Optional[str] = None,
+):
+    """列出指定路径下所有子目录（需用户授权）"""
+    config = _load_config()
+    default_depth = config.get("scanner", {}).get("max_depth", 3)
+    depth = max_depth if max_depth > 0 else default_depth
+    return _list_subdirs_with_permission(path, depth, permission_id)
+
+
+@router.post("/api/scanner/list-subdirs")
+async def list_subdirs_post(body: ListSubdirsRequest):
+    """列出指定路径下所有子目录（需用户授权）"""
+    config = _load_config()
+    default_depth = config.get("scanner", {}).get("max_depth", 3)
+    depth = body.max_depth if body.max_depth > 0 else default_depth
+    return _list_subdirs_with_permission(body.path, depth, body.permission_id)
 
 
 @router.post("/api/scanner/scan")

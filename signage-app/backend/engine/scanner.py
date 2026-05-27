@@ -9,6 +9,25 @@ from typing import Dict, List, Any, Optional
 class DirectoryScanner:
     """递归扫描根目录，自动发现含 Excel 清单的项目文件夹"""
 
+    SKIP_DIR_NAMES = frozenset({
+        ".git",
+        "node_modules",
+        "__pycache__",
+        ".venv",
+        "venv",
+        ".idea",
+        ".vscode",
+        "dist",
+        "build",
+        ".cursor",
+        ".svn",
+        ".hg",
+        "Thumbs.db",
+    })
+
+    def _should_skip_dir(self, name: str) -> bool:
+        return name in self.SKIP_DIR_NAMES
+
     def _list_xlsx_files(self, dir_path: str) -> List[str]:
         """列出目录内有效 .xlsx 文件（排除 ~$ 临时文件）"""
         try:
@@ -81,7 +100,78 @@ class DirectoryScanner:
 
     def quick_scan(self, root_path: str, depth: int = 2) -> dict:
         """浅层快速扫描（限定 depth 层子目录）"""
-        result = self.scan(root_path, max_depth=max_depth)
+        result = self.scan(root_path, max_depth=depth)
         result["quick"] = True
         result["depth"] = depth
         return result
+
+    def _count_direct_files(self, dir_path: str) -> int:
+        """统计目录下直接子文件数量（不含子目录内文件）"""
+        try:
+            count = 0
+            for name in os.listdir(dir_path):
+                if name.startswith("."):
+                    continue
+                if os.path.isfile(os.path.join(dir_path, name)):
+                    count += 1
+            return count
+        except (OSError, PermissionError):
+            return 0
+
+    def _collect_subdirs(
+        self,
+        dir_path: str,
+        dirs: List[Dict[str, Any]],
+        current_depth: int,
+        max_depth: int,
+    ) -> None:
+        """递归收集所有子目录（不因含 .xlsx 而提前终止）"""
+        if current_depth > max_depth:
+            return
+
+        norm_path = os.path.normpath(dir_path)
+        is_project = self.is_project_dir(norm_path)
+        xlsx_files = self._list_xlsx_files(norm_path) if is_project else []
+
+        dirs.append({
+            "name": os.path.basename(norm_path) or norm_path,
+            "path": norm_path,
+            "depth": current_depth,
+            "is_project": is_project,
+            "file_count": len(xlsx_files) if is_project else self._count_direct_files(norm_path),
+        })
+
+        if current_depth >= max_depth:
+            return
+
+        try:
+            with os.scandir(dir_path) as entries:
+                for entry in entries:
+                    if not entry.is_dir(follow_symlinks=False):
+                        continue
+                    if self._should_skip_dir(entry.name):
+                        continue
+                    self._collect_subdirs(
+                        entry.path, dirs, current_depth + 1, max_depth
+                    )
+        except (OSError, PermissionError):
+            pass
+
+    def list_subdirs(self, root_path: str, max_depth: int = 3) -> dict:
+        """列出 root_path 下所有子目录（含层级），不要求含 .xlsx"""
+        root_path = os.path.normpath(root_path)
+        if not os.path.isdir(root_path):
+            return {
+                "dirs": [],
+                "count": 0,
+                "root_path": root_path,
+                "error": "目录不存在或不可访问",
+            }
+
+        dirs: List[Dict[str, Any]] = []
+        self._collect_subdirs(root_path, dirs, current_depth=0, max_depth=max_depth)
+        return {
+            "dirs": dirs,
+            "count": len(dirs),
+            "root_path": root_path,
+        }
