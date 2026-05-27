@@ -21,15 +21,21 @@ SCAN_KEYWORDS = [
 
 
 def extract_directory_path(message: str) -> Optional[str]:
-    """从用户消息中提取 Windows 目录路径"""
+    """从用户消息中提取 Windows 目录路径（遇分隔符后的中文叙述即截断）"""
+    # 中文文件夹名：非贪婪，在常见叙述词/标点/空格/分隔符前停止
+    _cjk_stop = r"(?=这个|路径|下的|其中|里面|看看|\s|[.,;，。；：:!！?？]|$|[\\/])"
+    _cjk_folder = rf"[\u4e00-\u9fff]+?{_cjk_stop}"
+    # 每段：ASCII 名 + 可选中文后缀，或纯中文段；段间必须有 \ 或 /
+    _segment = rf"(?:[A-Za-z0-9_.\-]+(?:{_cjk_folder})?|{_cjk_folder})"
     patterns = [
-        r"[A-Za-z]:\\(?:[^\\/:*?\"<>|\r\n]+\\?)*[^\\/:*?\"<>|\r\n]*",
-        r"[A-Za-z]:/(?:[^/:*?\"<>|\r\n]+/?)*[^/:*?\"<>|\r\n]*",
+        rf"[A-Za-z]:\\(?:{_segment}\\)*{_segment}",
+        rf"[A-Za-z]:/(?:{_segment}/)*{_segment}",
     ]
     for pattern in patterns:
         match = re.search(pattern, message)
         if match:
-            path = os.path.normpath(match.group(0).rstrip(".,;，。； "))
+            path = match.group(0).rstrip("\\/.,;，。； \t")
+            path = os.path.normpath(path)
             if len(path) >= 3:
                 return path
     return None
