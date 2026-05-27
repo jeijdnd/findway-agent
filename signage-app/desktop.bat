@@ -1,15 +1,22 @@
 @echo off
-chcp 65001 >nul
 cd /d "%~dp0"
 
-echo [INFO] Starting backend...
-start "FindWay Backend" /MIN venv\Scripts\python.exe -m uvicorn backend.main:app --host 127.0.0.1 --port 8765
+if not exist "node_modules\.bin\electron.cmd" (
+  echo [ERROR] node_modules not found. Run: npm install
+  pause
+  exit /b 1
+)
 
-echo [INFO] Waiting 5 seconds for backend...
-timeout /t 5 /nobreak >nul
+if not exist "venv\Scripts\python.exe" (
+  echo [ERROR] Python venv not found. Run install.bat first.
+  pause
+  exit /b 1
+)
 
-echo [INFO] Starting Electron...
-start "" "node_modules\.bin\electron.cmd" .
+echo [INFO] Starting FindWay Agent...
+call node_modules\.bin\electron.cmd .
 
-echo Done. Backend: http://127.0.0.1:8765
-pause
+if errorlevel 1 (
+  echo [ERROR] Electron exited with an error.
+  pause
+)

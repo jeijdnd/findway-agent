@@ -1,10 +1,12 @@
 /**
  * FindWay Agent Electron 主进程
- * 仅负责窗口与 UI；后端由 desktop.bat 启动
+ * 启动隐藏后端子进程，管理窗口与系统托盘
  */
 const { app, BrowserWindow, Tray, Menu, dialog, ipcMain, nativeImage } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const http = require('http');
+const { spawn } = require('child_process');
 
 const FAVICON_PATH = path.join(__dirname, '..', 'frontend', 'public', 'favicon.ico');
 
@@ -22,7 +24,13 @@ function resolveAppIcon() {
   }
 }
 
-const BACKEND_URL = 'http://127.0.0.1:8765';
+const APP_ROOT = path.join(__dirname, '..');
+const BACKEND_PORT = 8765;
+const BACKEND_URL = `http://127.0.0.1:${BACKEND_PORT}`;
+const BACKEND_HEALTH_URL = `${BACKEND_URL}/api/health`;
+
+let pythonProcess = null;
+let backendStartedByApp = false;
 
 /** %APPDATA%/FindWay-Agent 数据目录 */
 function getFindWayAgentDataDir() {
@@ -58,6 +66,126 @@ let mainWindow = null;
 let tray = null;
 let isQuitting = false;
 
+function getPythonExecutable() {
+  const venvPython = path.join(APP_ROOT, 'venv', 'Scripts', 'python.exe');
+  if (process.platform === 'win32' && fs.existsSync(venvPython)) {
+    return venvPython;
+  }
+  return process.platform === 'win32' ? 'python' : 'python3';
+}
+
+function checkBackendHealth() {
+  return new Promise((resolve) => {
+    const req = http.get(BACKEND_HEALTH_URL, (res) => {
+      res.resume();
+      resolve(res.statusCode === 200);
+    });
+    req.on('error', () => resolve(false));
+    req.setTimeout(2000, () => {
+      req.destroy();
+      resolve(false);
+    });
+  });
+}
+
+function waitForBackend(maxAttempts = 30, intervalMs = 500) {
+  return new Promise((resolve, reject) => {
+    let attempts = 0;
+    const poll = async () => {
+      if (await checkBackendHealth()) {
+        resolve();
+        return;
+      }
+      attempts += 1;
+      if (attempts >= maxAttempts) {
+        reject(new Error('Python backend failed to start (health check timeout)'));
+        return;
+      }
+      setTimeout(poll, intervalMs);
+    };
+    poll();
+  });
+}
+
+function startBackendProcess() {
+  return new Promise((resolve, reject) => {
+    const python = getPythonExecutable();
+    const args = [
+      '-m',
+      'uvicorn',
+      'backend.main:app',
+      '--host',
+      '127.0.0.1',
+      '--port',
+      String(BACKEND_PORT),
+    ];
+
+    pythonProcess = spawn(python, args, {
+      cwd: APP_ROOT,
+      env: { ...process.env, PORT: String(BACKEND_PORT) },
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+
+    pythonProcess.stdout?.on('data', (chunk) => {
+      console.log('[backend]', chunk.toString().trimEnd());
+    });
+    pythonProcess.stderr?.on('data', (chunk) => {
+      console.error('[backend]', chunk.toString().trimEnd());
+    });
+    pythonProcess.on('error', (err) => {
+      pythonProcess = null;
+      reject(err);
+    });
+    pythonProcess.on('exit', (code, signal) => {
+      console.log('[backend] process exited', { code, signal });
+      pythonProcess = null;
+    });
+
+    waitForBackend()
+      .then(() => {
+        backendStartedByApp = true;
+        resolve();
+      })
+      .catch((err) => {
+        stopBackendProcess();
+        reject(err);
+      });
+  });
+}
+
+async function ensureBackendRunning() {
+  if (await checkBackendHealth()) {
+    console.log('[backend] already running on', BACKEND_URL);
+    return;
+  }
+  console.log('[backend] starting uvicorn on', BACKEND_URL);
+  await startBackendProcess();
+  console.log('[backend] ready');
+}
+
+function stopBackendProcess() {
+  if (!backendStartedByApp) {
+    return;
+  }
+  if (!pythonProcess || pythonProcess.killed) {
+    pythonProcess = null;
+    backendStartedByApp = false;
+    return;
+  }
+  const pid = pythonProcess.pid;
+  if (process.platform === 'win32') {
+    spawn('taskkill', ['/pid', String(pid), '/f', '/t'], {
+      windowsHide: true,
+      stdio: 'ignore',
+    });
+  } else {
+    pythonProcess.kill('SIGTERM');
+  }
+  pythonProcess = null;
+  backendStartedByApp = false;
+}
+
 function createMainWindow() {
   try {
     const savedBounds = store.get('windowBounds');
@@ -90,14 +218,14 @@ function createMainWindow() {
       if (errorCode === -3) return;
       dialog.showErrorBox(
         '加载失败',
-        `无法加载 ${validatedURL}\n${errorDescription} (${errorCode})\n\n请先运行 desktop.bat 启动后端。`
+        `无法加载 ${validatedURL}\n${errorDescription} (${errorCode})\n\n请重启应用或检查后端是否在 ${BACKEND_URL} 运行。`
       );
     });
 
     mainWindow.loadURL(BACKEND_URL).catch((err) => {
       dialog.showErrorBox(
         '加载失败',
-        `${err.message}\n\n请确认后端已在 http://127.0.0.1:8765 运行（运行 desktop.bat）。`
+        `${err.message}\n\n请确认后端已在 ${BACKEND_URL} 运行。`
       );
     });
 
@@ -251,11 +379,13 @@ function setupIPC() {
   });
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   try {
+    await ensureBackendRunning();
+
     const dataDir = getFindWayAgentDataDir();
-    console.log('FindWay Agent 数据目录:', dataDir);
-    console.log('FindWay Agent Electron 启动，加载', BACKEND_URL);
+    console.log('FindWay Agent data dir:', dataDir);
+    console.log('FindWay Agent Electron loading', BACKEND_URL);
     setupIPC();
     createTray();
     createMainWindow();
@@ -269,12 +399,17 @@ app.whenReady().then(() => {
     });
   } catch (err) {
     console.error('app.whenReady failed:', err);
-    dialog.showErrorBox('启动错误', err.message);
+    dialog.showErrorBox(
+      'Backend startup failed',
+      `${err.message}\n\nCheck venv and run: pip install -r requirements.txt`
+    );
+    app.quit();
   }
 });
 
 app.on('before-quit', () => {
   isQuitting = true;
+  stopBackendProcess();
 });
 
 app.on('window-all-closed', () => {
