@@ -15,6 +15,7 @@ from backend.api.chat_history import (
 )
 from backend.api.chat_permissions import extract_directory_path
 from backend.services.chat_log_service import append_chat_log
+from backend.services.project_memory import project_memory
 
 router = APIRouter()
 
@@ -130,7 +131,11 @@ async def chat(request: ChatRequest):
     """聊天接口，接收用户消息，返回AI回复（非流式）"""
     try:
         stored = get_messages_for_llm(request.chat_id)
-        history_dicts = stored
+        history_dicts = project_memory.get_context_history(
+            request.project_id, stored, max_rounds=5
+        )
+        if request.project_id:
+            project_memory.ensure_project_dir(request.project_id)
 
         api_config_id = _ensure_llm_api_key(request.api_config_id)
         if not api_config_id:
@@ -147,10 +152,21 @@ async def chat(request: ChatRequest):
             message=request.message,
             history=history_dicts,
             api_config_id=api_config_id,
+            project_id=request.project_id,
         )
         if reply_override is not None:
             reply = reply_override
-        
+
+        project_memory.append_exchange(
+            request.project_id, request.message, reply
+        )
+        project_memory.schedule_memory_update(
+            request.project_id,
+            request.message,
+            reply,
+            api_config_id,
+        )
+
         saved = append_exchange(request.chat_id, request.message, reply)
         resp_data = {**(data or {}), "chat_id": saved.get("id")}
         _record_chat_log(
@@ -168,12 +184,21 @@ async def chat_stream(request: StreamChatRequest):
         try:
             # 优先使用请求中的 history，否则从持久化记录加载
             if request.history is not None:
-                history_dicts = [
+                raw_history = [
                     {"role": m.get("role", "user"), "content": m.get("content", "")}
                     for m in request.history
                 ]
+                history_dicts = project_memory.get_context_history(
+                    request.project_id, raw_history, max_rounds=5
+                )
             else:
-                history_dicts = get_messages_for_llm(request.chat_id)
+                stored = get_messages_for_llm(request.chat_id)
+                history_dicts = project_memory.get_context_history(
+                    request.project_id, stored, max_rounds=5
+                )
+
+            if request.project_id:
+                project_memory.ensure_project_dir(request.project_id)
 
             api_config_id = _ensure_llm_api_key(request.api_config_id)
             if not api_config_id:
@@ -185,6 +210,7 @@ async def chat_stream(request: StreamChatRequest):
                 message=request.message,
                 history=history_dicts,
                 api_config_id=api_config_id,
+                project_id=request.project_id,
             ):
                 full_reply += token
                 yield f'data: {json.dumps({"type": "token", "content": token}, ensure_ascii=False)}\n\n'
@@ -195,6 +221,16 @@ async def chat_stream(request: StreamChatRequest):
             action, data, reply_override = _apply_intent(intent, request.message)
             if reply_override is not None:
                 full_reply = reply_override
+
+            project_memory.append_exchange(
+                request.project_id, request.message, full_reply
+            )
+            project_memory.schedule_memory_update(
+                request.project_id,
+                request.message,
+                full_reply,
+                api_config_id,
+            )
 
             saved = append_exchange(request.chat_id, request.message, full_reply)
 

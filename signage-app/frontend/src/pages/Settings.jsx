@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import SettingsLogsPanel from '../components/SettingsLogsPanel'
+import SettingsSkillsPanel from '../components/SettingsSkillsPanel'
 
 const SETTINGS_SECTIONS = [
   { id: 'general', label: '常规配置' },
+  { id: 'skills', label: '技能' },
   { id: 'logs', label: '日志' },
 ]
 
@@ -351,6 +353,17 @@ function Settings() {
       ))}
     </nav>
   )
+
+  if (activeSection === 'skills') {
+    return (
+      <div className="settings-layout">
+        {settingsNav}
+        <div className="settings-content">
+          <SettingsSkillsPanel />
+        </div>
+      </div>
+    )
+  }
 
   if (activeSection === 'logs') {
     return (

@@ -1,0 +1,14 @@
+{
+  "name": "scan_directory",
+  "version": "1.0.0",
+  "description": "扫描本地目录，列出所有子文件夹和项目",
+  "icon": "folder",
+  "category": "文件管理",
+  "entry": "main.py",
+  "parameters": {
+    "path": {
+      "type": "string",
+      "description": "要扫描的目录路径"
+    }
+  }
+}

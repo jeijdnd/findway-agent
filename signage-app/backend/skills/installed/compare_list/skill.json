@@ -1,0 +1,18 @@
+{
+  "name": "compare_list",
+  "version": "1.0.0",
+  "description": "对比两版清单差异，高亮新增与变更项",
+  "icon": "diff",
+  "category": "清单管理",
+  "entry": "main.py",
+  "parameters": {
+    "file_a": {
+      "type": "string",
+      "description": "清单文件 A 路径"
+    },
+    "file_b": {
+      "type": "string",
+      "description": "清单文件 B 路径"
+    }
+  }
+}

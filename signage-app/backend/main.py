@@ -22,6 +22,7 @@ from backend.api.merge import router as merge_router
 from backend.api.scanner import router as scanner_router
 from backend.api.chat_history import router as chat_history_router
 from backend.api.logs import router as logs_router
+from backend.api.skills import router as skills_router
 from backend.services.error_log_service import log_exception
 
 app = FastAPI(
@@ -57,6 +58,7 @@ app.include_router(api_configs_router)
 app.include_router(merge_router)
 app.include_router(scanner_router)
 app.include_router(logs_router)
+app.include_router(skills_router)
 
 
 def _request_endpoint(request: Request) -> str:
@@ -74,6 +76,7 @@ async def on_startup():
     print(f"对话历史: {_os.path.join(data_dir, 'chat_history.json')}")
     print(f"对话日志: {_os.path.join(data_dir, 'chat_log.json')}")
     print(f"错误日志: {_os.path.join(data_dir, 'error_log.json')}")
+    print(f"项目记忆: {_os.path.join(data_dir, 'projects')}")
 
 
 @app.get("/api/health")

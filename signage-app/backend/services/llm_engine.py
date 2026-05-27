@@ -170,12 +170,38 @@ class LLMEngine:
             }
             formatted_history.append(formatted_msg)
         return formatted_history
+
+    def build_system_prompt(self, project_id: Optional[str] = None) -> str:
+        """组装系统提示：基础人设 + 已启用技能 + 项目 memory.md"""
+        from backend.skills import skill_manager
+        from backend.services.project_memory import read_memory_md
+
+        parts = [SYSTEM_PROMPT]
+        tools = skill_manager.get_tools_prompt()
+        if tools:
+            parts.append("\n\n" + tools)
+        memory = read_memory_md(project_id)
+        if memory:
+            parts.append(f"\n\n## 项目记忆（memory.md）\n{memory}")
+        return "\n".join(parts)
+
+    def _build_messages(
+        self,
+        message: str,
+        history: List[Dict[str, str]],
+        project_id: Optional[str] = None,
+    ) -> List[Dict[str, str]]:
+        messages = [{"role": "system", "content": self.build_system_prompt(project_id)}]
+        messages.extend(self._format_history(history))
+        messages.append({"role": "user", "content": message})
+        return messages
     
     async def chat_stream(
         self, 
         message: str, 
         history: List[Dict[str, str]], 
-        api_config_id: Optional[str] = None
+        api_config_id: Optional[str] = None,
+        project_id: Optional[str] = None,
     ) -> AsyncGenerator[str, None]:
         """
         流式对话接口，逐token yield
@@ -202,13 +228,7 @@ class LLMEngine:
             client = self._create_client(api_config)
             model = api_config.get("model", "gpt-4o-mini")
             
-            # 格式化对话历史
-            formatted_history = self._format_history(history)
-            
-            # 构建消息列表
-            messages = [{"role": "system", "content": SYSTEM_PROMPT}]
-            messages.extend(formatted_history)
-            messages.append({"role": "user", "content": message})
+            messages = self._build_messages(message, history, project_id)
             
             # 调用流式API
             stream = await client.chat.completions.create(
@@ -231,7 +251,8 @@ class LLMEngine:
         self, 
         message: str, 
         history: List[Dict[str, str]], 
-        api_config_id: Optional[str] = None
+        api_config_id: Optional[str] = None,
+        project_id: Optional[str] = None,
     ) -> str:
         """
         非流式对话接口，返回完整回复
@@ -256,13 +277,7 @@ class LLMEngine:
             client = self._create_client(api_config)
             model = api_config.get("model", "gpt-4o-mini")
 
-            # 格式化对话历史
-            formatted_history = self._format_history(history)
-
-            # 构建消息列表
-            messages = [{"role": "system", "content": SYSTEM_PROMPT}]
-            messages.extend(formatted_history)
-            messages.append({"role": "user", "content": message})
+            messages = self._build_messages(message, history, project_id)
 
             # 调用非流式API
             response = await client.chat.completions.create(

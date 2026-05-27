@@ -1,0 +1,18 @@
+{
+  "name": "create_project",
+  "version": "1.0.0",
+  "description": "创建新的标识设计项目并初始化工作区",
+  "icon": "plus-square",
+  "category": "项目管理",
+  "entry": "main.py",
+  "parameters": {
+    "name": {
+      "type": "string",
+      "description": "项目名称"
+    },
+    "project_type": {
+      "type": "string",
+      "description": "项目类型"
+    }
+  }
+}

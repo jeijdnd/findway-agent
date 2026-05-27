@@ -1,0 +1,27 @@
+{
+  "name": "summarize_memory",
+  "version": "1.0.0",
+  "description": "从对话中提取关键决策与待办，更新项目记忆摘要",
+  "icon": "brain",
+  "category": "系统",
+  "entry": "main.py",
+  "internal": true,
+  "parameters": {
+    "project_slug": {
+      "type": "string",
+      "description": "项目目录标识"
+    },
+    "user_message": {
+      "type": "string",
+      "description": "用户消息"
+    },
+    "assistant_reply": {
+      "type": "string",
+      "description": "助手回复"
+    },
+    "current_memory": {
+      "type": "string",
+      "description": "当前 memory.md 内容"
+    }
+  }
+}
