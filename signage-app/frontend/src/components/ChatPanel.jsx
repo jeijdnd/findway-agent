@@ -52,7 +52,14 @@ async function persistChatHistory(chatId, messages) {
   return res.json()
 }
 
-function ChatPanel({ onAction, chatId, onChatIdChange, onHistoryChange, newChatSignal }) {
+function ChatPanel({
+  onAction,
+  chatId,
+  onChatIdChange,
+  onHistoryChange,
+  newChatSignal,
+  skillInvokeSignal,
+}) {
   const navigate = useNavigate()
   const [messages, setMessages] = useState([WELCOME_MESSAGE])
   const [inputValue, setInputValue] = useState('')
@@ -128,6 +135,12 @@ function ChatPanel({ onAction, chatId, onChatIdChange, onHistoryChange, newChatS
       setMessages([WELCOME_MESSAGE])
     }
   }, [newChatSignal])
+
+  useEffect(() => {
+    if (!skillInvokeSignal?.nonce) return
+    const name = skillInvokeSignal.displayName || skillInvokeSignal.name
+    setInputValue(`请使用技能「${name}」帮我处理当前任务`)
+  }, [skillInvokeSignal])
 
   const sendMessage = async () => {
     const text = inputValue.trim()
@@ -222,7 +235,7 @@ function ChatPanel({ onAction, chatId, onChatIdChange, onHistoryChange, newChatS
   }
 
   return (
-    <>
+    <div className="chat-panel-inner">
       <div className="chat-messages">
         {messages.map((msg, index) => (
           <div key={index} className={`message ${msg.role}`}>
@@ -279,7 +292,7 @@ function ChatPanel({ onAction, chatId, onChatIdChange, onHistoryChange, newChatS
           发送
         </button>
       </div>
-    </>
+    </div>
   )
 }
 

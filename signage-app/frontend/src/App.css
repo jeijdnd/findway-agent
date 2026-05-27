@@ -4,59 +4,219 @@
   width: 100vw;
 }
 
-/* WorkBuddy 三栏布局：左 250px | 主内容 | 右按钮条 45px */
+/* WorkBuddy 三栏可缩放布局：左栏 | 中间聊天/工具 | 右栏 */
 .workbuddy-layout {
   display: flex;
+  flex-direction: column;
   height: 100vh;
   width: 100vw;
   overflow: hidden;
 }
 
-.workbuddy-left {
-  width: 250px;
-  flex-shrink: 0;
+.workbuddy-columns {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.workbuddy-col-left,
+.workbuddy-col-right {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  overflow: hidden;
 }
 
-.workbuddy-left .chat-panel {
-  width: 100%;
-  min-width: 0;
-  flex: 1;
-  min-height: 0;
-}
-
-.workbuddy-main-wrap {
+.workbuddy-col-center {
   flex: 1;
   display: flex;
   flex-direction: column;
   min-width: 0;
+  min-height: 0;
   position: relative;
+  background: var(--bg);
 }
 
-.workbuddy-main-wrap .main-panel {
+.workbuddy-col-center .main-panel {
   flex: 1;
   min-height: 0;
 }
 
-/* 右侧按钮条 */
-.right-sidebar {
-  width: 45px;
+/* 列宽拖拽手柄 */
+.column-resize-handle {
+  width: 4px;
   flex-shrink: 0;
+  cursor: col-resize;
+  background: transparent;
+  transition: background 0.15s;
+  z-index: 10;
+}
+
+.column-resize-handle:hover,
+.column-resize-handle:active {
+  background: var(--primary);
+}
+
+/* 左栏导航 */
+.left-sidebar {
   display: flex;
   flex-direction: column;
+  height: 100%;
+  background: var(--white);
+  border-right: 1px solid var(--border);
+  min-height: 0;
+}
+
+.left-sidebar-header {
+  display: flex;
   align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.left-sidebar-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.left-sidebar-new-btn {
+  padding: 4px 10px;
+  font-size: 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--white);
+  cursor: pointer;
+  color: var(--primary);
+}
+
+.left-sidebar-new-btn:hover {
+  background: #dbeafe;
+  border-color: var(--primary);
+}
+
+.left-sidebar-section {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.left-sidebar-history {
+  flex: 1;
+}
+
+.left-sidebar-section-title {
+  padding: 8px 14px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  flex-shrink: 0;
+}
+
+.left-sidebar .chat-history-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 8px 8px;
+}
+
+.left-sidebar-skills {
+  flex-shrink: 0;
+  max-height: 200px;
+  border-top: 1px solid var(--border);
+}
+
+.left-sidebar-skills-hint {
+  padding: 8px 14px 12px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.left-sidebar-skills-list {
+  list-style: none;
+  margin: 0;
+  padding: 0 8px 10px;
+  overflow-y: auto;
+  max-height: 140px;
+}
+
+.left-sidebar-skill-btn {
+  width: 100%;
+  text-align: left;
+  padding: 6px 10px;
+  margin-bottom: 4px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  font-size: 12px;
+  cursor: pointer;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.left-sidebar-skill-btn:hover {
+  border-color: var(--primary);
+  background: #dbeafe;
+}
+
+/* 中间聊天区 */
+.center-chat {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--white);
+}
+
+.center-chat-header {
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  flex-shrink: 0;
+}
+
+.center-chat-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.center-chat-body .chat-messages {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.center-chat-body .chat-input-area {
+  flex-shrink: 0;
+}
+
+/* 右栏工具条 */
+.right-toolbar {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
   gap: 4px;
-  padding: 8px 0;
+  height: 100%;
+  padding: 10px 8px;
   background: var(--white);
   border-left: 1px solid var(--border);
-  z-index: 20;
+  overflow-y: auto;
 }
 
-.right-sidebar-btn {
-  width: 40px;
-  padding: 6px 2px;
+.right-toolbar-btn {
+  padding: 10px 6px;
   border: none;
   border-radius: 8px;
   background: transparent;
@@ -64,30 +224,45 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
+  gap: 4px;
   color: var(--text-secondary);
   transition: background 0.15s, color 0.15s;
 }
 
-.right-sidebar-btn:hover {
+.right-toolbar-btn:hover {
   background: var(--bg);
   color: var(--text);
 }
 
-.right-sidebar-btn.active {
+.right-toolbar-btn.active {
   background: #dbeafe;
   color: var(--primary);
 }
 
-.right-sidebar-icon {
-  font-size: 16px;
+.right-toolbar-icon {
+  font-size: 18px;
   line-height: 1;
 }
 
-.right-sidebar-label {
-  font-size: 9px;
-  line-height: 1.1;
+.right-toolbar-label {
+  font-size: 11px;
+  line-height: 1.2;
   text-align: center;
+}
+
+/* 主内容区标题（替代顶部标签栏） */
+.main-panel-title-bar {
+  padding: 12px 20px;
+  background: var(--white);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.main-panel-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
 }
 
 /* 右侧滑出面板 */
@@ -167,58 +342,7 @@
   padding: 16px;
 }
 
-/* 左侧对话区 */
-.chat-panel {
-  width: 40%;
-  min-width: 300px;
-  background: var(--white);
-  border-right: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-}
-
-.chat-header {
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--border);
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--text);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.chat-new-btn {
-  width: 28px;
-  height: 28px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--white);
-  font-size: 18px;
-  line-height: 1;
-  cursor: pointer;
-  color: var(--text);
-}
-
-.chat-new-btn:hover {
-  background: var(--bg);
-  border-color: var(--primary);
-  color: var(--primary);
-}
-
-.chat-history-sidebar {
-  border-bottom: 1px solid var(--border);
-  max-height: 180px;
-  overflow-y: auto;
-  flex-shrink: 0;
-}
-
-.chat-history-title {
-  padding: 8px 16px 4px;
-  font-size: 12px;
-  color: var(--text-secondary);
-  font-weight: 500;
-}
+/* 历史对话列表（左栏复用） */
 
 .chat-history-list {
   list-style: none;
@@ -286,6 +410,14 @@
 
 .chat-history-delete:hover {
   color: #dc2626;
+}
+
+.chat-panel-inner {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .chat-messages {

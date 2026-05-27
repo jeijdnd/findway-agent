@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import ChatPanel from './ChatPanel'
 import CommandPalette from './CommandPalette'
 import WorkBuddyLayout from '../layout/WorkBuddyLayout'
+import LeftSidebar from './LeftSidebar'
+import CenterChat from './CenterChat'
+import RightToolbar from './RightToolbar'
 import Dashboard from '../pages/Dashboard'
 import Matching from '../pages/Matching'
 import Compare from '../pages/Compare'
@@ -200,11 +202,13 @@ function CADPanel() {
 }
 
 function AppLayout() {
+  const [viewMode, setViewMode] = useState('chat')
   const [activeTab, setActiveTab] = useState('dashboard')
   const [refreshKey, setRefreshKey] = useState(0)
   const [chatHistoryList, setChatHistoryList] = useState([])
   const [currentChatId, setCurrentChatId] = useState(null)
   const [newChatSignal, setNewChatSignal] = useState(0)
+  const [skillInvokeSignal, setSkillInvokeSignal] = useState({ nonce: 0 })
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
   const [commandTrigger, setCommandTrigger] = useState({ type: null, nonce: 0 })
 
@@ -226,6 +230,23 @@ function AppLayout() {
   const handleNewChat = useCallback(() => {
     setCurrentChatId(null)
     setNewChatSignal((n) => n + 1)
+    setViewMode('chat')
+  }, [])
+
+  const handleToolbarSelect = useCallback((mode, tabId) => {
+    setViewMode(mode)
+    if (mode === 'tool' && tabId) {
+      setActiveTab(tabId)
+    }
+  }, [])
+
+  const handleSkillInvoke = useCallback((skill) => {
+    setViewMode('chat')
+    setSkillInvokeSignal({
+      nonce: Date.now(),
+      name: skill.name,
+      displayName: skill.display_name || skill.name,
+    })
   }, [])
 
   useEffect(() => {
@@ -245,18 +266,22 @@ function AppLayout() {
   const handleCommand = (commandId) => {
     switch (commandId) {
       case 'scan':
+        setViewMode('tool')
         setActiveTab('dashboard')
         setCommandTrigger({ type: 'scan', nonce: Date.now() })
         break
       case 'matching':
+        setViewMode('tool')
         setActiveTab('matching')
         setRefreshKey((prev) => prev + 1)
         break
       case 'new-project':
+        setViewMode('tool')
         setActiveTab('dashboard')
         setCommandTrigger({ type: 'new-project', nonce: Date.now() })
         break
       case 'settings':
+        setViewMode('tool')
         setActiveTab('settings')
         break
       case 'new-chat':
@@ -269,6 +294,7 @@ function AppLayout() {
 
   const handleAction = (action, data) => {
     if (action === 'create_project' || action === 'open_dashboard_create') {
+      setViewMode('tool')
       setActiveTab('dashboard')
       setCommandTrigger({
         type: 'new-project',
@@ -278,15 +304,19 @@ function AppLayout() {
         projectType: data?.project_type || '',
       })
     } else if (action === 'search_old_project') {
+      setViewMode('tool')
       setActiveTab('matching')
       setRefreshKey((prev) => prev + 1)
     } else if (action === 'compare_list') {
+      setViewMode('tool')
       setActiveTab('compare')
       setRefreshKey((prev) => prev + 1)
     } else if (action === 'merge_tuding') {
+      setViewMode('tool')
       setActiveTab('merge')
       setRefreshKey((prev) => prev + 1)
     } else if (action === 'open_scan') {
+      setViewMode('tool')
       setActiveTab('dashboard')
       setCommandTrigger({ type: 'scan', nonce: Date.now() })
     }
@@ -296,6 +326,7 @@ function AppLayout() {
   }
 
   const handleSidebarPanelOpen = (panelId) => {
+    setViewMode('tool')
     if (panelId === 'compare') setActiveTab('compare')
     else if (panelId === 'new-project' || panelId === 'projects') setActiveTab('dashboard')
     else if (panelId === 'settings') setActiveTab('settings')
@@ -333,97 +364,19 @@ function AppLayout() {
     }
   }
 
-  const chatPanel = (
-    <div className="chat-panel">
-      <div className="chat-header">
-        <span>FindWay Agent</span>
-        <button
-          type="button"
-          className="chat-new-btn"
-          title="新建对话 (Ctrl+N)"
-          onClick={handleNewChat}
-        >
-          +
-        </button>
-      </div>
-      <div className="chat-history-sidebar">
-        <div className="chat-history-title">历史对话</div>
-        <ul className="chat-history-list">
-          {chatHistoryList.length === 0 ? (
-            <li className="chat-history-empty">暂无历史</li>
-          ) : (
-            chatHistoryList.map((chat) => (
-              <li
-                key={chat.id}
-                className={`chat-history-item ${currentChatId === chat.id ? 'active' : ''}`}
-                onClick={() => setCurrentChatId(chat.id)}
-              >
-                <div className="chat-history-item-title">{chat.title}</div>
-                {chat.preview && (
-                  <div className="chat-history-item-preview">{chat.preview}</div>
-                )}
-                <button
-                  type="button"
-                  className="chat-history-delete"
-                  title="删除"
-                  onClick={(e) => handleDeleteChat(e, chat.id)}
-                >
-                  ×
-                </button>
-              </li>
-            ))
-          )}
-        </ul>
-      </div>
-      <ChatPanel
-        onAction={handleAction}
-        chatId={currentChatId}
-        onChatIdChange={setCurrentChatId}
-        onHistoryChange={fetchChatHistoryList}
-        newChatSignal={newChatSignal}
-      />
-    </div>
-  )
+  const tabTitles = {
+    dashboard: '项目仪表盘',
+    matching: '旧项目匹配',
+    compare: '清单对比',
+    merge: '合并预览',
+    settings: '设置',
+    cad: 'CAD辅助',
+  }
 
   const mainPanel = (
     <div className="main-panel">
-      <div className="panel-header">
-        <button
-          className={`panel-tab ${activeTab === 'dashboard' ? 'active' : ''}`}
-          onClick={() => setActiveTab('dashboard')}
-        >
-          项目仪表盘
-        </button>
-        <button
-          className={`panel-tab ${activeTab === 'matching' ? 'active' : ''}`}
-          onClick={() => setActiveTab('matching')}
-        >
-          旧项目匹配
-        </button>
-        <button
-          className={`panel-tab ${activeTab === 'compare' ? 'active' : ''}`}
-          onClick={() => setActiveTab('compare')}
-        >
-          清单对比
-        </button>
-        <button
-          className={`panel-tab ${activeTab === 'merge' ? 'active' : ''}`}
-          onClick={() => setActiveTab('merge')}
-        >
-          合并预览
-        </button>
-        <button
-          className={`panel-tab ${activeTab === 'settings' ? 'active' : ''}`}
-          onClick={() => setActiveTab('settings')}
-        >
-          设置
-        </button>
-        <button
-          className={`panel-tab ${activeTab === 'cad' ? 'active' : ''}`}
-          onClick={() => setActiveTab('cad')}
-        >
-          CAD辅助
-        </button>
+      <div className="main-panel-title-bar">
+        <h2 className="main-panel-title">{tabTitles[activeTab] || '工具'}</h2>
       </div>
       <div className="panel-content">
         {renderPanel()}
@@ -438,8 +391,38 @@ function AppLayout() {
   return (
     <>
       <WorkBuddyLayout
-        left={chatPanel}
-        main={mainPanel}
+        leftSidebar={
+          <LeftSidebar
+            chatHistoryList={chatHistoryList}
+            currentChatId={currentChatId}
+            onSelectChat={(id) => {
+              setCurrentChatId(id)
+              setViewMode('chat')
+            }}
+            onNewChat={handleNewChat}
+            onDeleteChat={handleDeleteChat}
+            onSkillInvoke={handleSkillInvoke}
+          />
+        }
+        centerChat={
+          <CenterChat
+            onAction={handleAction}
+            chatId={currentChatId}
+            onChatIdChange={setCurrentChatId}
+            onHistoryChange={fetchChatHistoryList}
+            newChatSignal={newChatSignal}
+            skillInvokeSignal={skillInvokeSignal}
+          />
+        }
+        mainContent={mainPanel}
+        rightToolbar={
+          <RightToolbar
+            activeTab={activeTab}
+            viewMode={viewMode}
+            onSelect={handleToolbarSelect}
+          />
+        }
+        viewMode={viewMode}
         onPanelOpen={handleSidebarPanelOpen}
       />
       <CommandPalette
