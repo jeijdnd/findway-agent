@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import ChatPanel from './ChatPanel'
 import CommandPalette from './CommandPalette'
+import WorkBuddyLayout from '../layout/WorkBuddyLayout'
 import Dashboard from '../pages/Dashboard'
 import Matching from '../pages/Matching'
 import Compare from '../pages/Compare'
@@ -294,6 +295,12 @@ function AppLayout() {
     }
   }
 
+  const handleSidebarPanelOpen = (panelId) => {
+    if (panelId === 'compare') setActiveTab('compare')
+    else if (panelId === 'new-project' || panelId === 'projects') setActiveTab('dashboard')
+    else if (panelId === 'settings') setActiveTab('settings')
+  }
+
   const handleDeleteChat = async (e, id) => {
     e.stopPropagation()
     try {
@@ -326,110 +333,121 @@ function AppLayout() {
     }
   }
 
-  return (
-    <div className="app-layout">
-      <div className="chat-panel">
-        <div className="chat-header">
-          <span>FindWay Agent</span>
-          <button
-            type="button"
-            className="chat-new-btn"
-            title="新建对话 (Ctrl+N)"
-            onClick={handleNewChat}
-          >
-            +
-          </button>
-        </div>
-        <div className="chat-history-sidebar">
-          <div className="chat-history-title">历史对话</div>
-          <ul className="chat-history-list">
-            {chatHistoryList.length === 0 ? (
-              <li className="chat-history-empty">暂无历史</li>
-            ) : (
-              chatHistoryList.map((chat) => (
-                <li
-                  key={chat.id}
-                  className={`chat-history-item ${currentChatId === chat.id ? 'active' : ''}`}
-                  onClick={() => setCurrentChatId(chat.id)}
+  const chatPanel = (
+    <div className="chat-panel">
+      <div className="chat-header">
+        <span>FindWay Agent</span>
+        <button
+          type="button"
+          className="chat-new-btn"
+          title="新建对话 (Ctrl+N)"
+          onClick={handleNewChat}
+        >
+          +
+        </button>
+      </div>
+      <div className="chat-history-sidebar">
+        <div className="chat-history-title">历史对话</div>
+        <ul className="chat-history-list">
+          {chatHistoryList.length === 0 ? (
+            <li className="chat-history-empty">暂无历史</li>
+          ) : (
+            chatHistoryList.map((chat) => (
+              <li
+                key={chat.id}
+                className={`chat-history-item ${currentChatId === chat.id ? 'active' : ''}`}
+                onClick={() => setCurrentChatId(chat.id)}
+              >
+                <div className="chat-history-item-title">{chat.title}</div>
+                {chat.preview && (
+                  <div className="chat-history-item-preview">{chat.preview}</div>
+                )}
+                <button
+                  type="button"
+                  className="chat-history-delete"
+                  title="删除"
+                  onClick={(e) => handleDeleteChat(e, chat.id)}
                 >
-                  <div className="chat-history-item-title">{chat.title}</div>
-                  {chat.preview && (
-                    <div className="chat-history-item-preview">{chat.preview}</div>
-                  )}
-                  <button
-                    type="button"
-                    className="chat-history-delete"
-                    title="删除"
-                    onClick={(e) => handleDeleteChat(e, chat.id)}
-                  >
-                    ×
-                  </button>
-                </li>
-              ))
-            )}
-          </ul>
-        </div>
-        <ChatPanel
-          onAction={handleAction}
-          chatId={currentChatId}
-          onChatIdChange={setCurrentChatId}
-          onHistoryChange={fetchChatHistoryList}
-          newChatSignal={newChatSignal}
-        />
+                  ×
+                </button>
+              </li>
+            ))
+          )}
+        </ul>
       </div>
-      <div className="main-panel">
-        <div className="panel-header">
-          <button
-            className={`panel-tab ${activeTab === 'dashboard' ? 'active' : ''}`}
-            onClick={() => setActiveTab('dashboard')}
-          >
-            项目仪表盘
-          </button>
-          <button
-            className={`panel-tab ${activeTab === 'matching' ? 'active' : ''}`}
-            onClick={() => setActiveTab('matching')}
-          >
-            旧项目匹配
-          </button>
-          <button
-            className={`panel-tab ${activeTab === 'compare' ? 'active' : ''}`}
-            onClick={() => setActiveTab('compare')}
-          >
-            清单对比
-          </button>
-          <button
-            className={`panel-tab ${activeTab === 'merge' ? 'active' : ''}`}
-            onClick={() => setActiveTab('merge')}
-          >
-            合并预览
-          </button>
-          <button
-            className={`panel-tab ${activeTab === 'settings' ? 'active' : ''}`}
-            onClick={() => setActiveTab('settings')}
-          >
-            设置
-          </button>
-          <button
-            className={`panel-tab ${activeTab === 'cad' ? 'active' : ''}`}
-            onClick={() => setActiveTab('cad')}
-          >
-            CAD辅助
-          </button>
-        </div>
-        <div className="panel-content">
-          {renderPanel()}
-        </div>
-        <div className="status-bar">
-          <span>API: 已连接</span>
-          <span>Ctrl+K 命令面板</span>
-        </div>
+      <ChatPanel
+        onAction={handleAction}
+        chatId={currentChatId}
+        onChatIdChange={setCurrentChatId}
+        onHistoryChange={fetchChatHistoryList}
+        newChatSignal={newChatSignal}
+      />
+    </div>
+  )
+
+  const mainPanel = (
+    <div className="main-panel">
+      <div className="panel-header">
+        <button
+          className={`panel-tab ${activeTab === 'dashboard' ? 'active' : ''}`}
+          onClick={() => setActiveTab('dashboard')}
+        >
+          项目仪表盘
+        </button>
+        <button
+          className={`panel-tab ${activeTab === 'matching' ? 'active' : ''}`}
+          onClick={() => setActiveTab('matching')}
+        >
+          旧项目匹配
+        </button>
+        <button
+          className={`panel-tab ${activeTab === 'compare' ? 'active' : ''}`}
+          onClick={() => setActiveTab('compare')}
+        >
+          清单对比
+        </button>
+        <button
+          className={`panel-tab ${activeTab === 'merge' ? 'active' : ''}`}
+          onClick={() => setActiveTab('merge')}
+        >
+          合并预览
+        </button>
+        <button
+          className={`panel-tab ${activeTab === 'settings' ? 'active' : ''}`}
+          onClick={() => setActiveTab('settings')}
+        >
+          设置
+        </button>
+        <button
+          className={`panel-tab ${activeTab === 'cad' ? 'active' : ''}`}
+          onClick={() => setActiveTab('cad')}
+        >
+          CAD辅助
+        </button>
       </div>
+      <div className="panel-content">
+        {renderPanel()}
+      </div>
+      <div className="status-bar">
+        <span>API: 已连接</span>
+        <span>Ctrl+K 命令面板</span>
+      </div>
+    </div>
+  )
+
+  return (
+    <>
+      <WorkBuddyLayout
+        left={chatPanel}
+        main={mainPanel}
+        onPanelOpen={handleSidebarPanelOpen}
+      />
       <CommandPalette
         open={commandPaletteOpen}
         onClose={() => setCommandPaletteOpen(false)}
         onExecute={handleCommand}
       />
-    </div>
+    </>
   )
 }
 
