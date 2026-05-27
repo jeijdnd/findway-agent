@@ -190,13 +190,20 @@ class SkillManager:
         self.set_enabled(name, new_state)
         return new_state
 
-    async def execute(self, name: str, **kwargs) -> Dict[str, Any]:
-        info = self._skills.get(name)
+    async def execute(self, skill_name: str, **parameters) -> Dict[str, Any]:
+        """执行技能。skill_name 为工具名；parameters 为 LLM 传入的参数字典（可含 name/path 等）。"""
+        info = self._skills.get(skill_name)
         if not info or not info.get("instance"):
-            return {"success": False, "error": f"技能不存在或未加载: {name}"}
+            return {"success": False, "error": f"技能不存在或未加载: {skill_name}"}
         if not info["enabled"] and not info.get("internal"):
-            return {"success": False, "error": f"技能未启用: {name}"}
-        return await info["instance"].execute(**kwargs)
+            return {"success": False, "error": f"技能未启用: {skill_name}"}
+        return await info["instance"].execute(**parameters)
+
+    async def execute_skill(
+        self, skill_name: str, parameters: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """按技能名 + 参数字典执行（与 execute(skill_name, **parameters) 等价）。"""
+        return await self.execute(skill_name, **(parameters or {}))
 
     def get_discover_catalog(self) -> List[Dict[str, str]]:
         """技能市场发现（示例）"""

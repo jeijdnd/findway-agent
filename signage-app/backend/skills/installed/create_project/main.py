@@ -13,10 +13,15 @@ class CreateProjectSkill(BaseSkill):
         "project_type": {"type": "string", "description": "项目类型"},
     }
 
-    async def execute(self, **kwargs) -> Dict[str, Any]:
-        name = (kwargs.get("name") or "").strip()
-        path = (kwargs.get("path") or "").strip()
-        project_type = (kwargs.get("project_type") or "").strip()
+    async def execute(
+        self,
+        name: str = "",
+        path: str = "",
+        project_type: str = "",
+    ) -> Dict[str, Any]:
+        name = (name or "").strip()
+        path = (path or "").strip()
+        project_type = (project_type or "").strip()
 
         if not name:
             return {
