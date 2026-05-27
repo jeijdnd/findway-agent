@@ -7,6 +7,8 @@ import json
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 
+from backend.i18n import _
+
 class ProjectIndexer:
     """项目索引器类，负责扫描和索引旧项目"""
     
@@ -28,7 +30,7 @@ class ProjectIndexer:
         
         # 检查目录是否存在
         if not os.path.exists(dir_path):
-            print(f"目录不存在: {dir_path}")
+            print(_("index_dir_not_found", path=dir_path))
             return projects
         
         # 递归查找所有.xlsx文件
@@ -100,7 +102,7 @@ class ProjectIndexer:
             }
             
         except Exception as e:
-            print(f"提取项目信息失败 {file_path}: {e}")
+            print(_("index_extract_failed", path=file_path, error=e))
             return None
     
     def _analyze_project_type(self, file_name: str, headers: List[str]) -> str:
@@ -159,9 +161,9 @@ class ProjectIndexer:
             os.makedirs(os.path.dirname(self.index_path), exist_ok=True)
             with open(self.index_path, "w", encoding="utf-8") as f:
                 json.dump(index_data, f, ensure_ascii=False, indent=2)
-            print(f"索引已保存到: {self.index_path}")
+            print(_("index_saved", path=self.index_path))
         except Exception as e:
-            print(f"保存索引失败: {e}")
+            print(_("index_save_failed", error=e))
         
         return index_data
     
@@ -177,7 +179,7 @@ class ProjectIndexer:
                 with open(self.index_path, "r", encoding="utf-8") as f:
                     return json.load(f)
         except Exception as e:
-            print(f"加载索引失败: {e}")
+            print(_("index_load_failed", error=e))
         
         return {
             "projects": [],

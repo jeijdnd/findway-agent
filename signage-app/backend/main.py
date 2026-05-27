@@ -25,6 +25,7 @@ from backend.api.logs import router as logs_router
 from backend.api.skills import router as skills_router
 from backend.api.safety import router as safety_router
 from backend.services.error_log_service import log_exception
+from backend.i18n import _
 
 app = FastAPI(
     title="FindWay Agent API",
@@ -74,11 +75,11 @@ async def on_startup():
     import os as _os
 
     data_dir = get_app_data_dir()
-    print(f"用户数据目录: {data_dir}")
-    print(f"对话历史: {_os.path.join(data_dir, 'chat_history.json')}")
-    print(f"对话日志: {_os.path.join(data_dir, 'chat_log.json')}")
-    print(f"错误日志: {_os.path.join(data_dir, 'error_log.json')}")
-    print(f"项目记忆: {_os.path.join(data_dir, 'projects')}")
+    print(_("user_data_dir", path=data_dir))
+    print(_("chat_history_path", path=_os.path.join(data_dir, "chat_history.json")))
+    print(_("chat_log_path", path=_os.path.join(data_dir, "chat_log.json")))
+    print(_("error_log_path", path=_os.path.join(data_dir, "error_log.json")))
+    print(_("project_memory_path", path=_os.path.join(data_dir, "projects")))
 
 
 @app.get("/api/health")
@@ -146,10 +147,11 @@ if __name__ == "__main__":
     port = int(os.getenv('PORT', 8765))
     
     # 打印启动日志
-    print(f"FindWay Agent V2 后端启动，端口: {port}")
-    print(f"模式: {'生产模式' if is_production else '开发模式'}")
-    print(f"访问地址: http://127.0.0.1:{port}")
-    print(f"API文档: http://127.0.0.1:{port}/docs")
+    mode = _("mode_production") if is_production else _("mode_development")
+    print(_("backend_started_port", port=port))
+    print(_("mode_label", mode=mode))
+    print(_("access_url", url=f"http://127.0.0.1:{port}"))
+    print(_("api_docs", url=f"http://127.0.0.1:{port}"))
     
     uvicorn.run(
         "main:app",

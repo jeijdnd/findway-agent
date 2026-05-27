@@ -9,6 +9,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from backend.services.app_data import get_app_data_dir
+from backend.i18n import _
 
 
 def _safe_slug(name: str) -> str:
@@ -174,7 +175,7 @@ async def summarize_memory_async(
         if result.get("success") and result.get("memory_md"):
             write_memory_md(project_id, result["memory_md"])
     except Exception as e:
-        print(f"更新项目记忆失败 ({slug}): {e}")
+        print(_("project_memory_update_failed", slug=slug, error=e))
 
 
 def schedule_memory_update(

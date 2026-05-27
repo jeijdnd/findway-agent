@@ -9,6 +9,8 @@ import json
 import os
 import copy
 
+from backend.i18n import _
+
 router = APIRouter()
 
 # 配置文件路径
@@ -102,7 +104,7 @@ def load_config() -> dict:
                 _deep_merge(merged, config)
                 return merged
     except Exception as e:
-        print(f"加载配置文件失败: {e}")
+        print(_("config_load_failed", error=e))
     return copy.deepcopy(DEFAULT_CONFIG)
 
 def save_config(config: dict):

@@ -7,6 +7,7 @@ const path = require('path');
 const fs = require('fs');
 const http = require('http');
 const { spawn } = require('child_process');
+const { t } = require('./i18n');
 
 const FAVICON_PATH = path.join(__dirname, '..', 'frontend', 'public', 'favicon.ico');
 
@@ -138,7 +139,7 @@ function startBackendProcess() {
       reject(err);
     });
     pythonProcess.on('exit', (code, signal) => {
-      console.log('[backend] process exited', { code, signal });
+      console.log(t('backend_process_exited', { code, signal }));
       pythonProcess = null;
     });
 
@@ -156,12 +157,12 @@ function startBackendProcess() {
 
 async function ensureBackendRunning() {
   if (await checkBackendHealth()) {
-    console.log('[backend] already running on', BACKEND_URL);
+    console.log(t('backend_already_running', { url: BACKEND_URL }));
     return;
   }
-  console.log('[backend] starting uvicorn on', BACKEND_URL);
+  console.log(t('backend_starting_uvicorn', { url: BACKEND_URL }));
   await startBackendProcess();
-  console.log('[backend] ready');
+  console.log(t('backend_ready', { url: BACKEND_URL }));
 }
 
 function stopBackendProcess() {
@@ -384,8 +385,8 @@ app.whenReady().then(async () => {
     await ensureBackendRunning();
 
     const dataDir = getFindWayAgentDataDir();
-    console.log('FindWay Agent data dir:', dataDir);
-    console.log('FindWay Agent Electron loading', BACKEND_URL);
+    console.log(t('electron_data_dir', { path: dataDir }));
+    console.log(t('electron_loading', { url: BACKEND_URL }));
     setupIPC();
     createTray();
     createMainWindow();
@@ -400,8 +401,8 @@ app.whenReady().then(async () => {
   } catch (err) {
     console.error('app.whenReady failed:', err);
     dialog.showErrorBox(
-      'Backend startup failed',
-      `${err.message}\n\nCheck venv and run: pip install -r requirements.txt`
+      t('backend_startup_failed_title'),
+      t('backend_startup_failed_detail', { error: err.message })
     );
     app.quit();
   }

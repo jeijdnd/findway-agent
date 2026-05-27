@@ -13,6 +13,7 @@ from datetime import datetime, timedelta
 from backend.engine.scanner import DirectoryScanner
 from backend.api.projects import load_projects, save_projects, ProjectResponse
 from backend.services.app_data import get_app_data_dir
+from backend.i18n import _
 
 router = APIRouter()
 
@@ -414,6 +415,7 @@ async def scan_directories(body: ScanRequest):
     if result.get("error"):
         raise HTTPException(status_code=400, detail=result["error"])
 
+    print(_("scan_complete", count=result.get("count", 0)))
     return result
 
 

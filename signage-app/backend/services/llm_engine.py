@@ -11,6 +11,8 @@ from dataclasses import dataclass, field
 from typing import AsyncGenerator, List, Dict, Any, Optional, Callable, Awaitable
 from openai import AsyncOpenAI
 
+from backend.i18n import _
+
 ToolExecutor = Callable[[str, Dict[str, Any]], Awaitable[Dict[str, Any]]]
 
 MAX_TOOL_ROUNDS = 5
@@ -69,7 +71,7 @@ class LLMEngine:
                 self._config_mtime = mtime
             return self._config_cache
         except Exception as e:
-            print(f"加载配置文件失败: {e}")
+            print(_("config_load_failed", error=e))
             return {}
     
     def get_active_configs(self) -> List[Dict[str, Any]]:
@@ -120,7 +122,7 @@ class LLMEngine:
             if legacy_key and legacy_key != "***":
                 return legacy_key
         except Exception as e:
-            print(f"读取 API Key 失败: {e}")
+            print(_("api_key_read_failed", error=e))
         return ""
 
     def _resolve_api_key(self, api_config: Dict[str, Any]) -> str:

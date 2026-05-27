@@ -17,6 +17,7 @@ from backend.services.chat_log_service import append_chat_log
 from backend.services.project_memory import project_memory
 from backend.skills import skill_manager
 from backend.services.safety_auditor import safety_auditor
+from backend.i18n import _
 
 router = APIRouter()
 
@@ -124,7 +125,7 @@ def _record_chat_log(
             data=data,
         )
     except Exception as e:
-        print(f"写入对话日志失败: {e}")
+        print(_("chat_log_write_failed", error=e))
 
 
 @router.post("/api/chat", response_model=ChatResponse)

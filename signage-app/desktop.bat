@@ -1,14 +1,15 @@
 @echo off
+chcp 65001 >nul 2>nul
 cd /d "%~dp0"
 
 if not exist "node_modules\.bin\electron.cmd" (
-  echo [ERROR] node_modules not found. Run: npm install
+  call "%~dp0scripts\i18n-echo.cmd" error_node_modules_not_found
   pause
   exit /b 1
 )
 
 if not exist "venv\Scripts\python.exe" (
-  echo [ERROR] Python venv not found. Run install.bat first.
+  call "%~dp0scripts\i18n-echo.cmd" error_venv_not_found
   pause
   exit /b 1
 )
