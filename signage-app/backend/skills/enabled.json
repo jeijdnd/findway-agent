@@ -2,6 +2,7 @@
   "enabled": [
     "scan_directory",
     "create_project",
-    "compare_list"
+    "compare_list",
+    "discover_tools"
   ]
 }

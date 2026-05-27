@@ -1,0 +1,14 @@
+{
+  "name": "discover_tools",
+  "version": "1.0.0",
+  "description": "在 GitHub 上搜索 findway-skill 社区技能（当缺少合适工具时使用）",
+  "icon": "search",
+  "category": "系统",
+  "entry": "main.py",
+  "parameters": {
+    "query": {
+      "type": "string",
+      "description": "任务描述或所需能力关键词，例如 CAD读取、PDF导出"
+    }
+  }
+}

@@ -142,6 +142,15 @@ async def chat(request: ChatRequest):
         resp_data = {**action_data, "chat_id": saved.get("id")}
         if result.tools_called:
             resp_data["tools_called"] = result.tools_called
+        if result.action_data.get("repos") is not None:
+            resp_data["tool_discovery"] = {
+                "found": result.action_data.get("found", False),
+                "repos": result.action_data.get("repos", []),
+                "query": result.action_data.get("query", ""),
+            }
+        if result.action_data.get("suggest_github_search"):
+            resp_data["suggest_github_search"] = True
+            resp_data["missing_tool"] = result.action_data.get("missing_tool")
 
         _record_chat_log(
             request.message, reply, saved.get("id"), action, resp_data
@@ -210,6 +219,14 @@ async def chat_stream(request: StreamChatRequest):
             metadata.update(result.action_data)
             if result.tools_called:
                 metadata["tools_called"] = result.tools_called
+            if result.action_data.get("repos") is not None:
+                metadata["tool_discovery"] = {
+                    "found": result.action_data.get("found", False),
+                    "repos": result.action_data.get("repos", []),
+                    "query": result.action_data.get("query", ""),
+                }
+            if result.action_data.get("suggest_github_search"):
+                metadata["suggest_github_search"] = True
             yield f'data: {json.dumps({"type": "done", "metadata": metadata}, ensure_ascii=False)}\n\n'
 
         except Exception as e:

@@ -706,3 +706,90 @@
 .permission-confirm-cancel:hover {
   background: var(--bg);
 }
+
+/* 工具自发现卡片 */
+.tool-discovery-block {
+  margin-top: 8px;
+  max-width: 95%;
+}
+
+.tool-discovery-header {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+.tool-discovery-message {
+  font-size: 12px;
+  margin: 0 0 8px;
+}
+
+.tool-discovery-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tool-discovery-card {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.tool-discovery-card.low-safety {
+  border-color: #fbbf24;
+  background: #fffbeb;
+}
+
+.tool-discovery-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.tool-discovery-name {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.tool-discovery-stars {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.tool-discovery-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin: 6px 0;
+  line-height: 1.4;
+}
+
+.tool-discovery-meta {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+  font-size: 12px;
+}
+
+.tool-discovery-score.ok {
+  color: #16a34a;
+}
+
+.tool-discovery-score.warn {
+  color: #d97706;
+  font-weight: 600;
+}
+
+.tool-discovery-warn {
+  color: #d97706;
+  font-size: 11px;
+}
+
+.tool-discovery-install {
+  font-size: 13px;
+  padding: 6px 12px;
+}

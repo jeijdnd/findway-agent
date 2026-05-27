@@ -1,5 +1,5 @@
 """
-技能 API：列表、启用/禁用、发现市场
+技能 API：列表、启用/禁用、发现市场、GitHub 安装
 """
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -12,6 +12,14 @@ router = APIRouter()
 
 class ToggleSkillRequest(BaseModel):
     enabled: Optional[bool] = None
+
+
+class DiscoverFromGithubRequest(BaseModel):
+    query: str
+
+
+class InstallFromGithubRequest(BaseModel):
+    repo_url: str
 
 
 @router.get("/api/skills")
@@ -54,3 +62,29 @@ async def discover_skills():
     for item in catalog:
         item["installed"] = item["name"] in installed
     return {"catalog": catalog}
+
+
+@router.post("/api/skills/discover-from-github")
+async def discover_from_github(body: DiscoverFromGithubRequest):
+    """从 GitHub 搜索 topic:findway-skill 技能仓库"""
+    query = body.query.strip()
+    if not query:
+        raise HTTPException(status_code=400, detail="请提供搜索关键词")
+    return skill_manager.discover_from_github(query)
+
+
+@router.post("/api/skills/install-from-github")
+async def install_from_github(body: InstallFromGithubRequest):
+    """从 GitHub 安装技能到 installed/ 并自动启用"""
+    repo_url = body.repo_url.strip()
+    if not repo_url:
+        raise HTTPException(status_code=400, detail="请提供仓库 URL")
+    try:
+        result = skill_manager.install_from_github(repo_url)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"安装失败: {e}") from e
+    if not result.get("success"):
+        raise HTTPException(status_code=400, detail=result.get("error", "安装失败"))
+    return result

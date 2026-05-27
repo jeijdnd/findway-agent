@@ -190,14 +190,50 @@ class SkillManager:
         self.set_enabled(name, new_state)
         return new_state
 
+    def skill_is_available(self, skill_name: str) -> bool:
+        info = self._skills.get(skill_name)
+        if not info or not info.get("instance"):
+            return False
+        if info.get("internal"):
+            return True
+        return bool(info.get("enabled"))
+
     async def execute(self, skill_name: str, **parameters) -> Dict[str, Any]:
         """执行技能。skill_name 为工具名；parameters 为 LLM 传入的参数字典（可含 name/path 等）。"""
         info = self._skills.get(skill_name)
         if not info or not info.get("instance"):
-            return {"success": False, "error": f"技能不存在或未加载: {skill_name}"}
+            return {
+                "success": False,
+                "no_tool_found": True,
+                "missing_tool": skill_name,
+                "suggest": "可调用 discover_tools 在 GitHub 搜索 findway-skill 社区技能",
+                "error": f"技能不存在或未加载: {skill_name}",
+            }
         if not info["enabled"] and not info.get("internal"):
-            return {"success": False, "error": f"技能未启用: {skill_name}"}
+            return {
+                "success": False,
+                "no_tool_found": True,
+                "missing_tool": skill_name,
+                "suggest": "可调用 discover_tools 搜索并安装新技能",
+                "error": f"技能未启用: {skill_name}",
+            }
         return await info["instance"].execute(**parameters)
+
+    def discover_from_github(self, query: str) -> Dict[str, Any]:
+        from backend.services.github_skill_discovery import search_skills
+
+        return search_skills(query)
+
+    def install_from_github(self, repo_url: str) -> Dict[str, Any]:
+        from backend.services.github_skill_discovery import install_skill_repo
+
+        result = install_skill_repo(repo_url, _INSTALLED_DIR)
+        if result.get("success"):
+            skill_name = result["skill_name"]
+            self.load_all()
+            if not self._skills.get(skill_name, {}).get("internal"):
+                self.set_enabled(skill_name, True)
+        return result
 
     async def execute_skill(
         self, skill_name: str, parameters: Optional[Dict[str, Any]] = None

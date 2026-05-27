@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
+import ToolDiscoveryCards from './ToolDiscoveryCards'
 
 const WELCOME_MESSAGE = {
   role: 'assistant',
@@ -55,6 +56,7 @@ function ChatPanel({ onAction, chatId, onChatIdChange, onHistoryChange, newChatS
   const [messages, setMessages] = useState([WELCOME_MESSAGE])
   const [inputValue, setInputValue] = useState('')
   const [loading, setLoading] = useState(false)
+  const [searchingTools, setSearchingTools] = useState(false)
   const messagesEndRef = useRef(null)
 
   const dispatchPanelAction = useCallback(
@@ -155,7 +157,12 @@ function ChatPanel({ onAction, chatId, onChatIdChange, onHistoryChange, newChatS
       }
 
       const data = await response.json()
-      const assistantMessage = { role: 'assistant', content: data.reply }
+      const assistantMessage = {
+        role: 'assistant',
+        content: data.reply,
+        toolDiscovery: data.data?.tool_discovery || null,
+        suggestGithubSearch: data.data?.suggest_github_search || false,
+      }
       const messagesAfterReply = [...messagesAfterUser, assistantMessage]
       setMessages(messagesAfterReply)
 
@@ -164,6 +171,33 @@ function ChatPanel({ onAction, chatId, onChatIdChange, onHistoryChange, newChatS
 
       if (data.action) {
         dispatchPanelAction(data.action, data.data)
+      }
+
+      if (data.data?.suggest_github_search && !data.data?.tool_discovery) {
+        setSearchingTools(true)
+        try {
+          const lastUser = text
+          const discRes = await fetch('/api/skills/discover-from-github', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ query: lastUser }),
+          })
+          if (discRes.ok) {
+            const disc = await discRes.json()
+            setMessages((prev) => {
+              const next = [...prev]
+              const last = next[next.length - 1]
+              if (last?.role === 'assistant') {
+                next[next.length - 1] = { ...last, toolDiscovery: disc }
+              }
+              return next
+            })
+          }
+        } catch {
+          // 忽略自动搜索失败
+        } finally {
+          setSearchingTools(false)
+        }
       }
     } catch (error) {
       let errorMsg = '发送失败，请检查后端是否启动'
@@ -191,11 +225,27 @@ function ChatPanel({ onAction, chatId, onChatIdChange, onHistoryChange, newChatS
         {messages.map((msg, index) => (
           <div key={index} className={`message ${msg.role}`}>
             <div className="message-bubble">{msg.content}</div>
+            {msg.toolDiscovery && (
+              <ToolDiscoveryCards
+                discovery={msg.toolDiscovery}
+                onInstalled={() => {
+                  setMessages((prev) => [
+                    ...prev,
+                    {
+                      role: 'assistant',
+                      content: `技能已安装。你可以重新描述需求，我将尝试使用新工具。`,
+                    },
+                  ])
+                }}
+              />
+            )}
           </div>
         ))}
-        {loading && (
+        {(loading || searchingTools) && (
           <div className="message assistant">
-            <div className="message-bubble">正在思考中...</div>
+            <div className="message-bubble">
+              {searchingTools ? '正在搜索适合的工具...' : '正在思考中...'}
+            </div>
           </div>
         )}
         <div ref={messagesEndRef} />
