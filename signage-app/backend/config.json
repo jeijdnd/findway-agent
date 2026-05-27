@@ -36,15 +36,15 @@
   "llm": {
     "apis": [
       {
-        "id": "mimo-v25-l1tfsw",
-        "name": "mimo-v2.5",
-        "base_url": "https://token-plan-cn.xiaomimimo.com/v1",
-        "api_key": "",
-        "model": "MiMo-V2.5",
+        "id": "deepseek-l4woy9",
+        "name": "deepseek",
+        "base_url": "https://api.deepseek.com",
+        "api_key": "sk-32b3994944664c42bd64f7c0792ed04a",
+        "model": "deepseek-v4-flash",
         "enabled": true
       }
     ],
-    "default_api": "mimo-v25-l1tfsw"
+    "default_api": "deepseek-l4woy9"
   },
   "scanner": {
     "watch_dirs": [
