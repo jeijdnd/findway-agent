@@ -290,9 +290,8 @@ class LLMEngine:
             history: 对话历史
             
         Returns:
-            意图字符串：create_project/search_old_project/compare_list/query_spec/merge_tuding/general
+            意图字符串：create_project/search_old_project/compare_list/query_spec/merge_tuding/scan_directory/general
         """
-        # 构建意图识别的提示词
         intent_prompt = f"""请分析用户消息的意图，返回以下其中一个意图代码：
 
 - create_project: 用户想要创建新项目
@@ -300,7 +299,14 @@ class LLMEngine:
 - compare_list: 用户想要对比清单
 - query_spec: 用户想要查询规范或标准
 - merge_tuding: 用户想要合并兔钉导出数据
+- scan_directory: 用户想要扫描、浏览或列出某个磁盘/文件夹中的项目（不一定已给出完整路径）
 - general: 其他通用对话
+
+示例：
+- "扫描E盘" → scan_directory
+- "看看我的项目文件夹" → scan_directory
+- "我想看看E盘有什么项目" → scan_directory
+- "列出E盘的文件" → scan_directory
 
 用户消息：{message}
 
@@ -327,8 +333,15 @@ class LLMEngine:
             intent = response.choices[0].message.content.strip().lower()
             
             # 验证意图代码
-            valid_intents = ["create_project", "search_old_project", "compare_list", 
-                           "query_spec", "merge_tuding", "general"]
+            valid_intents = [
+                "create_project",
+                "search_old_project",
+                "compare_list",
+                "query_spec",
+                "merge_tuding",
+                "scan_directory",
+                "general",
+            ]
             if intent in valid_intents:
                 return intent
             else:

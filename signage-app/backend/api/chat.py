@@ -13,10 +13,7 @@ from backend.api.chat_history import (
     append_exchange,
     get_messages_for_llm,
 )
-from backend.api.chat_permissions import (
-    extract_directory_path,
-    is_scan_directory_request,
-)
+from backend.api.chat_permissions import extract_directory_path
 from backend.services.chat_log_service import append_chat_log
 
 router = APIRouter()
@@ -73,6 +70,42 @@ def _ensure_llm_api_key(api_config_id: Optional[str] = None) -> Optional[str]:
     return resolved_id
 
 
+def _apply_intent(
+    intent: str, message: str
+) -> tuple[Optional[str], Optional[dict], Optional[str]]:
+    """
+    根据 infer_intent 结果设置 action/data；scan_directory 时返回需覆盖的固定回复。
+    返回 (action, data, reply_override)
+    """
+    if intent == "scan_directory":
+        scan_path = extract_directory_path(message)
+        if not scan_path:
+            return (
+                None,
+                {},
+                "请提供要扫描的目录完整路径，例如：D:\\Projects",
+            )
+        return (
+            "scan_directory",
+            {"path": scan_path},
+            (
+                f"需要扫描目录：{scan_path}\n"
+                "请在弹出的确认框中授权；拒绝后将回复「已取消」。"
+            ),
+        )
+    if intent == "create_project":
+        return "create_project", {}, None
+    if intent == "search_old_project":
+        return "search_old_project", {}, None
+    if intent == "compare_list":
+        return "compare_list", {}, None
+    if intent == "query_spec":
+        return "query_spec", {}, None
+    if intent == "merge_tuding":
+        return "merge_tuding", {}, None
+    return None, None, None
+
+
 def _record_chat_log(
     request_message: str,
     reply: str,
@@ -96,35 +129,6 @@ def _record_chat_log(
 async def chat(request: ChatRequest):
     """聊天接口，接收用户消息，返回AI回复（非流式）"""
     try:
-        # 目录扫描：先走权限确认，由前端调用 request-permission
-        if is_scan_directory_request(request.message):
-            scan_path = extract_directory_path(request.message)
-            if not scan_path:
-                reply = "请提供要扫描的目录完整路径，例如：D:\\Projects"
-                saved = append_exchange(request.chat_id, request.message, reply)
-                cid = saved.get("id")
-                _record_chat_log(request.message, reply, cid, None, {"chat_id": cid})
-                return ChatResponse(
-                    reply=reply,
-                    action=None,
-                    data={"chat_id": cid},
-                )
-            reply = (
-                f"需要扫描目录：{scan_path}\n"
-                "请在弹出的确认框中授权；拒绝后将回复「已取消」。"
-            )
-            saved = append_exchange(request.chat_id, request.message, reply)
-            cid = saved.get("id")
-            resp_data = {"path": scan_path, "chat_id": cid}
-            _record_chat_log(
-                request.message, reply, cid, "scan_directory", resp_data
-            )
-            return ChatResponse(
-                reply=reply,
-                action="scan_directory",
-                data=resp_data,
-            )
-
         stored = get_messages_for_llm(request.chat_id)
         history_dicts = stored
 
@@ -134,34 +138,18 @@ async def chat(request: ChatRequest):
             _record_chat_log(request.message, reply, request.chat_id)
             return ChatResponse(reply=reply, action=None, data=None)
 
-        # 使用LLM引擎获取回复（传入已解析的 api_config_id，确保 api_key 生效）
+        intent = await llm_engine.infer_intent(
+            message=request.message, history=history_dicts
+        )
+        action, data, reply_override = _apply_intent(intent, request.message)
+
         reply = await llm_engine.chat(
             message=request.message,
             history=history_dicts,
-            api_config_id=api_config_id
+            api_config_id=api_config_id,
         )
-        
-        # 推断意图
-        intent = await llm_engine.infer_intent(message=request.message, history=history_dicts)
-        
-        # 根据意图设置action和data
-        action = None
-        data = None
-        if intent == "create_project":
-            action = "create_project"
-            data = {}
-        elif intent == "search_old_project":
-            action = "search_old_project"
-            data = {}
-        elif intent == "compare_list":
-            action = "compare_list"
-            data = {}
-        elif intent == "query_spec":
-            action = "query_spec"
-            data = {}
-        elif intent == "merge_tuding":
-            action = "merge_tuding"
-            data = {}
+        if reply_override is not None:
+            reply = reply_override
         
         saved = append_exchange(request.chat_id, request.message, reply)
         resp_data = {**(data or {}), "chat_id": saved.get("id")}
@@ -201,17 +189,23 @@ async def chat_stream(request: StreamChatRequest):
                 full_reply += token
                 yield f'data: {json.dumps({"type": "token", "content": token}, ensure_ascii=False)}\n\n'
 
-            # 推断意图
-            intent = await llm_engine.infer_intent(message=request.message, history=history_dicts)
+            intent = await llm_engine.infer_intent(
+                message=request.message, history=history_dicts
+            )
+            action, data, reply_override = _apply_intent(intent, request.message)
+            if reply_override is not None:
+                full_reply = reply_override
 
             saved = append_exchange(request.chat_id, request.message, full_reply)
 
             metadata = {
                 "intent": intent,
-                "action": intent if intent != "general" else None,
+                "action": action,
                 "project_id": request.project_id,
                 "chat_id": saved.get("id"),
             }
+            if data:
+                metadata.update(data)
             yield f'data: {json.dumps({"type": "done", "metadata": metadata}, ensure_ascii=False)}\n\n'
 
         except Exception as e:
