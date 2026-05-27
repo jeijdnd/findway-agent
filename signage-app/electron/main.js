@@ -23,6 +23,14 @@ function resolveAppIcon() {
 }
 
 const BACKEND_URL = 'http://127.0.0.1:8765';
+
+/** %APPDATA%/FindWay-Agent 数据目录 */
+function getFindWayAgentDataDir() {
+  const appData = process.env.APPDATA || app.getPath('userData');
+  const dir = path.join(appData, 'FindWay-Agent');
+  fs.mkdirSync(dir, { recursive: true });
+  return dir;
+}
 const defaultWindowBounds = { x: undefined, y: undefined, width: 1400, height: 900 };
 let store;
 
@@ -217,6 +225,10 @@ function setupIPC() {
     return app.getVersion();
   });
 
+  ipcMain.handle('get-app-data-path', () => {
+    return getFindWayAgentDataDir();
+  });
+
   ipcMain.handle('show-confirm-dialog', async (_event, options = {}) => {
     const parent = mainWindow && !mainWindow.isDestroyed() ? mainWindow : null;
     const result = await dialog.showMessageBox(parent, {
@@ -241,6 +253,8 @@ function setupIPC() {
 
 app.whenReady().then(() => {
   try {
+    const dataDir = getFindWayAgentDataDir();
+    console.log('FindWay Agent 数据目录:', dataDir);
     console.log('FindWay Agent Electron 启动，加载', BACKEND_URL);
     setupIPC();
     createTray();

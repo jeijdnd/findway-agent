@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { requestFileOperationPermission } from '../utils/filePermission'
 
-function Dashboard() {
+function Dashboard({ commandTrigger }) {
   const [projects, setProjects] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -50,6 +50,15 @@ function Dashboard() {
   useEffect(() => {
     fetchProjects()
   }, [])
+
+  useEffect(() => {
+    if (!commandTrigger?.type) return
+    if (commandTrigger.type === 'scan') {
+      openScanModal()
+    } else if (commandTrigger.type === 'new-project') {
+      setShowForm(true)
+    }
+  }, [commandTrigger])
 
   const openScanModal = async () => {
     setShowScanModal(true)

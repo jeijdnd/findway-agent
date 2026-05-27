@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import ChatPanel from './ChatPanel'
+import CommandPalette from './CommandPalette'
 import Dashboard from '../pages/Dashboard'
 import Matching from '../pages/Matching'
 import Compare from '../pages/Compare'
@@ -32,7 +33,7 @@ function CADPanel() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ file_path: filePath }),
-        signal: controller.signal
+        signal: controller.signal,
       })
 
       clearTimeout(timeoutId)
@@ -74,8 +75,7 @@ function CADPanel() {
   return (
     <div>
       <h2 style={{ fontSize: '18px', marginBottom: '16px' }}>CAD辅助</h2>
-      
-      {/* 文件路径输入 */}
+
       <div style={{ background: 'white', padding: '16px', borderRadius: '8px', marginBottom: '16px', border: '1px solid var(--border)' }}>
         <h3 style={{ fontSize: '15px', marginBottom: '12px' }}>DWG文件读取</h3>
         <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
@@ -95,12 +95,10 @@ function CADPanel() {
         </p>
       </div>
 
-      {/* 显示读取结果 */}
       {cadInfo && (
         <div style={{ background: 'white', padding: '16px', borderRadius: '8px', border: '1px solid var(--border)' }}>
           <h3 style={{ fontSize: '15px', marginBottom: '12px' }}>文件信息</h3>
-          
-          {/* 文字信息 */}
+
           <div style={{ marginBottom: '16px' }}>
             <h4 style={{ fontSize: '14px', marginBottom: '8px', color: 'var(--text-secondary)' }}>
               文字内容 ({cadInfo.texts.length}个)
@@ -133,7 +131,6 @@ function CADPanel() {
             )}
           </div>
 
-          {/* 图块信息 */}
           <div style={{ marginBottom: '16px' }}>
             <h4 style={{ fontSize: '14px', marginBottom: '8px', color: 'var(--text-secondary)' }}>
               图块列表 ({cadInfo.blocks.length}种)
@@ -164,7 +161,6 @@ function CADPanel() {
             )}
           </div>
 
-          {/* 图层信息 */}
           <div>
             <h4 style={{ fontSize: '14px', marginBottom: '8px', color: 'var(--text-secondary)' }}>
               图层列表 ({cadInfo.layers.length}个)
@@ -205,27 +201,107 @@ function CADPanel() {
 function AppLayout() {
   const [activeTab, setActiveTab] = useState('dashboard')
   const [refreshKey, setRefreshKey] = useState(0)
+  const [chatHistoryList, setChatHistoryList] = useState([])
+  const [currentChatId, setCurrentChatId] = useState(null)
+  const [newChatSignal, setNewChatSignal] = useState(0)
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
+  const [commandTrigger, setCommandTrigger] = useState({ type: null, nonce: 0 })
+
+  const fetchChatHistoryList = useCallback(async () => {
+    try {
+      const res = await fetch('/api/chat/history')
+      if (!res.ok) return
+      const data = await res.json()
+      setChatHistoryList(data.chats || [])
+    } catch {
+      // 忽略
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchChatHistoryList()
+  }, [fetchChatHistoryList])
+
+  const handleNewChat = useCallback(() => {
+    setCurrentChatId(null)
+    setNewChatSignal((n) => n + 1)
+  }, [])
+
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        setCommandPaletteOpen(true)
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'n') {
+        e.preventDefault()
+        handleNewChat()
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [handleNewChat])
+
+  const handleCommand = (commandId) => {
+    switch (commandId) {
+      case 'scan':
+        setActiveTab('dashboard')
+        setCommandTrigger({ type: 'scan', nonce: Date.now() })
+        break
+      case 'matching':
+        setActiveTab('matching')
+        setRefreshKey((prev) => prev + 1)
+        break
+      case 'new-project':
+        setActiveTab('dashboard')
+        setCommandTrigger({ type: 'new-project', nonce: Date.now() })
+        break
+      case 'settings':
+        setActiveTab('settings')
+        break
+      case 'new-chat':
+        handleNewChat()
+        break
+      default:
+        break
+    }
+  }
 
   const handleAction = (action, data) => {
     if (action === 'create_project') {
       setActiveTab('dashboard')
-      setRefreshKey(prev => prev + 1)
+      setRefreshKey((prev) => prev + 1)
     } else if (action === 'search_old_project') {
       setActiveTab('matching')
-      setRefreshKey(prev => prev + 1)
+      setRefreshKey((prev) => prev + 1)
     } else if (action === 'compare_list') {
       setActiveTab('compare')
-      setRefreshKey(prev => prev + 1)
+      setRefreshKey((prev) => prev + 1)
     } else if (action === 'merge_tuding') {
       setActiveTab('merge')
-      setRefreshKey(prev => prev + 1)
+      setRefreshKey((prev) => prev + 1)
+    }
+    if (data?.chat_id) {
+      setCurrentChatId(data.chat_id)
+    }
+  }
+
+  const handleDeleteChat = async (e, id) => {
+    e.stopPropagation()
+    try {
+      await fetch(`/api/chat/history/${id}`, { method: 'DELETE' })
+      if (currentChatId === id) {
+        handleNewChat()
+      }
+      fetchChatHistoryList()
+    } catch {
+      // 忽略
     }
   }
 
   const renderPanel = () => {
     switch (activeTab) {
       case 'dashboard':
-        return <Dashboard key={refreshKey} />
+        return <Dashboard key={refreshKey} commandTrigger={commandTrigger} />
       case 'matching':
         return <Matching key={refreshKey} />
       case 'compare':
@@ -237,15 +313,60 @@ function AppLayout() {
       case 'cad':
         return <CADPanel key={refreshKey} />
       default:
-        return <Dashboard key={refreshKey} />
+        return <Dashboard key={refreshKey} commandTrigger={commandTrigger} />
     }
   }
 
   return (
     <div className="app-layout">
       <div className="chat-panel">
-        <div className="chat-header">FindWay Agent</div>
-        <ChatPanel onAction={handleAction} />
+        <div className="chat-header">
+          <span>FindWay Agent</span>
+          <button
+            type="button"
+            className="chat-new-btn"
+            title="新建对话 (Ctrl+N)"
+            onClick={handleNewChat}
+          >
+            +
+          </button>
+        </div>
+        <div className="chat-history-sidebar">
+          <div className="chat-history-title">历史对话</div>
+          <ul className="chat-history-list">
+            {chatHistoryList.length === 0 ? (
+              <li className="chat-history-empty">暂无历史</li>
+            ) : (
+              chatHistoryList.map((chat) => (
+                <li
+                  key={chat.id}
+                  className={`chat-history-item ${currentChatId === chat.id ? 'active' : ''}`}
+                  onClick={() => setCurrentChatId(chat.id)}
+                >
+                  <div className="chat-history-item-title">{chat.title}</div>
+                  {chat.preview && (
+                    <div className="chat-history-item-preview">{chat.preview}</div>
+                  )}
+                  <button
+                    type="button"
+                    className="chat-history-delete"
+                    title="删除"
+                    onClick={(e) => handleDeleteChat(e, chat.id)}
+                  >
+                    ×
+                  </button>
+                </li>
+              ))
+            )}
+          </ul>
+        </div>
+        <ChatPanel
+          onAction={handleAction}
+          chatId={currentChatId}
+          onChatIdChange={setCurrentChatId}
+          onHistoryChange={fetchChatHistoryList}
+          newChatSignal={newChatSignal}
+        />
       </div>
       <div className="main-panel">
         <div className="panel-header">
@@ -291,9 +412,14 @@ function AppLayout() {
         </div>
         <div className="status-bar">
           <span>API: 已连接</span>
-          <span>3个项目待办</span>
+          <span>Ctrl+K 命令面板</span>
         </div>
       </div>
+      <CommandPalette
+        open={commandPaletteOpen}
+        onClose={() => setCommandPaletteOpen(false)}
+        onExecute={handleCommand}
+      />
     </div>
   )
 }

@@ -36,6 +36,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
 
   /**
+   * 获取 %APPDATA%/FindWay-Agent 数据目录路径
+   * @returns {Promise<string>}
+   */
+  getAppDataPath: () => {
+    return ipcRenderer.invoke('get-app-data-path');
+  },
+
+  /**
    * 显示原生确认对话框
    * @param {Object} options - { title, message, detail, confirmText, cancelText }
    * @returns {Promise<boolean>} 用户是否点击允许

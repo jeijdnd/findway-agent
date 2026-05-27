@@ -19,6 +19,7 @@ from backend.api.cad import router as cad_router
 from backend.api.api_configs import router as api_configs_router
 from backend.api.merge import router as merge_router
 from backend.api.scanner import router as scanner_router
+from backend.api.chat_history import router as chat_history_router
 
 app = FastAPI(
     title="FindWay Agent API",
@@ -50,6 +51,7 @@ app.include_router(cad_router)
 app.include_router(api_configs_router)
 app.include_router(merge_router)
 app.include_router(scanner_router)
+app.include_router(chat_history_router)
 
 
 @app.get("/api/health")

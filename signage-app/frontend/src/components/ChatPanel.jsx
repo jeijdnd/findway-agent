@@ -1,12 +1,13 @@
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect, useCallback } from 'react'
 
-function ChatPanel({ onAction }) {
-  const [messages, setMessages] = useState([
-    {
-      role: 'assistant',
-      content: '你好！我是标识Agent，建筑导视标识设计AI助手。\n\n我可以帮你：\n1. 创建新项目\n2. 搜索旧项目\n3. 对比清单\n4. 查询规范\n\n请告诉我你需要什么帮助？'
-    }
-  ])
+const WELCOME_MESSAGE = {
+  role: 'assistant',
+  content:
+    '你好！我是标识Agent，建筑导视标识设计AI助手。\n\n我可以帮你：\n1. 创建新项目\n2. 搜索旧项目\n3. 对比清单\n4. 查询规范\n\n请告诉我你需要什么帮助？',
+}
+
+function ChatPanel({ onAction, chatId, onChatIdChange, onHistoryChange, newChatSignal }) {
+  const [messages, setMessages] = useState([WELCOME_MESSAGE])
   const [inputValue, setInputValue] = useState('')
   const [loading, setLoading] = useState(false)
   const messagesEndRef = useRef(null)
@@ -19,12 +20,40 @@ function ChatPanel({ onAction }) {
     scrollToBottom()
   }, [messages])
 
+  const loadChat = useCallback(async (id) => {
+    if (!id) {
+      setMessages([WELCOME_MESSAGE])
+      return
+    }
+    try {
+      const res = await fetch(`/api/chat/history/${id}`)
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const data = await res.json()
+      const loaded = data.messages?.length
+        ? data.messages.map((m) => ({ role: m.role, content: m.content }))
+        : [WELCOME_MESSAGE]
+      setMessages(loaded)
+    } catch {
+      setMessages([WELCOME_MESSAGE])
+    }
+  }, [])
+
+  useEffect(() => {
+    loadChat(chatId)
+  }, [chatId, loadChat])
+
+  useEffect(() => {
+    if (newChatSignal > 0) {
+      setMessages([WELCOME_MESSAGE])
+    }
+  }, [newChatSignal])
+
   const sendMessage = async () => {
     const text = inputValue.trim()
     if (!text || loading) return
 
     const userMessage = { role: 'user', content: text }
-    setMessages(prev => [...prev, userMessage])
+    setMessages((prev) => [...prev, userMessage])
     setInputValue('')
     setLoading(true)
 
@@ -35,8 +64,8 @@ function ChatPanel({ onAction }) {
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text }),
-        signal: controller.signal
+        body: JSON.stringify({ message: text, chat_id: chatId || undefined }),
+        signal: controller.signal,
       })
       clearTimeout(timeoutId)
 
@@ -46,7 +75,14 @@ function ChatPanel({ onAction }) {
 
       const data = await response.json()
       const assistantMessage = { role: 'assistant', content: data.reply }
-      setMessages(prev => [...prev, assistantMessage])
+      setMessages((prev) => [...prev, assistantMessage])
+
+      if (data.data?.chat_id && onChatIdChange) {
+        onChatIdChange(data.data.chat_id)
+      }
+      if (onHistoryChange) {
+        onHistoryChange()
+      }
 
       if (data.action && onAction) {
         onAction(data.action, data.data)
@@ -56,7 +92,7 @@ function ChatPanel({ onAction }) {
       if (error.name === 'AbortError') {
         errorMsg = '请求超时，请稍后再试'
       }
-      setMessages(prev => [...prev, { role: 'assistant', content: errorMsg }])
+      setMessages((prev) => [...prev, { role: 'assistant', content: errorMsg }])
     } finally {
       setLoading(false)
     }
