@@ -327,9 +327,17 @@ function AppLayout() {
 
   const handleSidebarPanelOpen = (panelId) => {
     setViewMode('tool')
-    if (panelId === 'compare') setActiveTab('compare')
-    else if (panelId === 'new-project' || panelId === 'projects') setActiveTab('dashboard')
-    else if (panelId === 'settings') setActiveTab('settings')
+    const tabMap = {
+      compare: 'compare',
+      settings: 'settings',
+      matching: 'matching',
+      merge: 'merge',
+      cad: 'cad',
+      dashboard: 'dashboard',
+      projects: 'dashboard',
+      'new-project': 'dashboard',
+    }
+    if (tabMap[panelId]) setActiveTab(tabMap[panelId])
   }
 
   const handleDeleteChat = async (e, id) => {
@@ -345,22 +353,56 @@ function AppLayout() {
     }
   }
 
-  const renderPanel = () => {
+  const renderPanel = (keyPrefix = 'main') => {
     switch (activeTab) {
       case 'dashboard':
-        return <Dashboard key={refreshKey} commandTrigger={commandTrigger} />
+        return (
+          <Dashboard
+            key={`${keyPrefix}-dashboard-${refreshKey}`}
+            commandTrigger={commandTrigger}
+          />
+        )
       case 'matching':
-        return <Matching key={refreshKey} />
+        return <Matching key={`${keyPrefix}-matching-${refreshKey}`} />
       case 'compare':
-        return <Compare key={refreshKey} />
+        return <Compare key={`${keyPrefix}-compare-${refreshKey}`} />
       case 'merge':
-        return <MergePreview key={refreshKey} />
+        return <MergePreview key={`${keyPrefix}-merge-${refreshKey}`} />
       case 'settings':
-        return <Settings key={refreshKey} />
+        return <Settings key={`${keyPrefix}-settings-${refreshKey}`} />
       case 'cad':
-        return <CADPanel key={refreshKey} />
+        return <CADPanel key={`${keyPrefix}-cad-${refreshKey}`} />
       default:
-        return <Dashboard key={refreshKey} commandTrigger={commandTrigger} />
+        return (
+          <Dashboard
+            key={`${keyPrefix}-dashboard-${refreshKey}`}
+            commandTrigger={commandTrigger}
+          />
+        )
+    }
+  }
+
+  const renderSlidePanel = (panelId) => {
+    switch (panelId) {
+      case 'dashboard':
+        return (
+          <Dashboard
+            key={`slide-dashboard-${refreshKey}`}
+            commandTrigger={commandTrigger}
+          />
+        )
+      case 'matching':
+        return <Matching key={`slide-matching-${refreshKey}`} />
+      case 'compare':
+        return <Compare key={`slide-compare-${refreshKey}`} />
+      case 'merge':
+        return <MergePreview key={`slide-merge-${refreshKey}`} />
+      case 'settings':
+        return <Settings key={`slide-settings-${refreshKey}`} />
+      case 'cad':
+        return <CADPanel key={`slide-cad-${refreshKey}`} />
+      default:
+        return null
     }
   }
 
@@ -379,7 +421,7 @@ function AppLayout() {
         <h2 className="main-panel-title">{tabTitles[activeTab] || '工具'}</h2>
       </div>
       <div className="panel-content">
-        {renderPanel()}
+        {renderPanel('main')}
       </div>
       <div className="status-bar">
         <span>API: 已连接</span>
@@ -415,13 +457,15 @@ function AppLayout() {
           />
         }
         mainContent={mainPanel}
-        rightToolbar={
+        renderRightToolbar={(onSlidePanel) => (
           <RightToolbar
             activeTab={activeTab}
             viewMode={viewMode}
             onSelect={handleToolbarSelect}
+            onSlidePanel={onSlidePanel}
           />
-        }
+        )}
+        renderSlidePanel={renderSlidePanel}
         viewMode={viewMode}
         onPanelOpen={handleSidebarPanelOpen}
       />

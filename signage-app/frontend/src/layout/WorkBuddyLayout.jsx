@@ -1,9 +1,6 @@
 import React, { useState, useCallback } from 'react'
 import { useColumnResize } from '../hooks/useColumnResize'
 import RightPanel from '../components/RightPanel'
-import Compare from '../pages/Compare'
-import Dashboard from '../pages/Dashboard'
-import Settings from '../pages/Settings'
 
 function ResizeHandle({ onMouseDown, className = '' }) {
   return (
@@ -21,7 +18,8 @@ function WorkBuddyLayout({
   leftSidebar,
   centerChat,
   mainContent,
-  rightToolbar,
+  renderRightToolbar,
+  renderSlidePanel,
   viewMode,
   onPanelOpen,
 }) {
@@ -29,17 +27,16 @@ function WorkBuddyLayout({
   const right = useColumnResize('layout-right-width', 180, 150, 300)
 
   const [activePanel, setActivePanel] = useState(null)
-  const [newProjectNonce, setNewProjectNonce] = useState(0)
 
   const handleSlideSelect = useCallback(
     (panelId) => {
-      setActivePanel(panelId)
-      if (panelId === 'new-project') {
-        setNewProjectNonce(Date.now())
-      }
-      if (panelId && onPanelOpen) {
-        onPanelOpen(panelId)
-      }
+      setActivePanel((prev) => {
+        const next = prev === panelId ? null : panelId
+        if (next && onPanelOpen) {
+          onPanelOpen(next)
+        }
+        return next
+      })
     },
     [onPanelOpen]
   )
@@ -47,32 +44,6 @@ function WorkBuddyLayout({
   const handleClose = useCallback(() => {
     setActivePanel(null)
   }, [])
-
-  const renderPanelContent = () => {
-    switch (activePanel) {
-      case 'compare':
-        return <Compare key="right-panel-compare" />
-      case 'new-project':
-        return (
-          <Dashboard
-            key={`right-panel-new-${newProjectNonce}`}
-            commandTrigger={{ type: 'new-project', nonce: newProjectNonce }}
-          />
-        )
-      case 'projects':
-        return <Dashboard key="right-panel-projects" />
-      case 'settings':
-        return <Settings key="right-panel-settings" />
-      default:
-        return null
-    }
-  }
-
-  const toolbarWithSlide =
-    rightToolbar &&
-    React.cloneElement(rightToolbar, {
-      onSlidePanel: handleSlideSelect,
-    })
 
   return (
     <div className="workbuddy-layout">
@@ -85,14 +56,14 @@ function WorkBuddyLayout({
         <div className="workbuddy-col-center">
           {viewMode === 'chat' ? centerChat : mainContent}
           <RightPanel open={!!activePanel} panelId={activePanel} onClose={handleClose}>
-            {renderPanelContent()}
+            {activePanel && renderSlidePanel ? renderSlidePanel(activePanel) : null}
           </RightPanel>
         </div>
 
         <ResizeHandle onMouseDown={right.startDragReverse} />
 
         <div className="workbuddy-col-right" style={{ width: right.width, flexShrink: 0 }}>
-          {toolbarWithSlide}
+          {renderRightToolbar ? renderRightToolbar(handleSlideSelect) : null}
         </div>
       </div>
     </div>

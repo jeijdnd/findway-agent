@@ -26,6 +26,14 @@
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
+  flex-shrink: 0;
+}
+
+.workbuddy-col-right > .right-toolbar {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
 }
 
 .workbuddy-col-center {
@@ -216,6 +224,7 @@
 }
 
 .right-toolbar-btn {
+  width: 100%;
   padding: 10px 6px;
   border: none;
   border-radius: 8px;
@@ -227,6 +236,7 @@
   gap: 4px;
   color: var(--text-secondary);
   transition: background 0.15s, color 0.15s;
+  flex-shrink: 0;
 }
 
 .right-toolbar-btn:hover {
@@ -248,6 +258,7 @@
   font-size: 11px;
   line-height: 1.2;
   text-align: center;
+  word-break: break-all;
 }
 
 /* 主内容区标题（替代顶部标签栏） */

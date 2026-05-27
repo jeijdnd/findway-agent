@@ -1,10 +1,15 @@
 import React, { useEffect } from 'react'
 
 const PANEL_TITLES = {
-  compare: '清单同步',
+  chat: '聊天',
+  dashboard: '项目仪表盘',
+  matching: '旧项目匹配',
+  compare: '清单对比',
+  merge: '合并预览',
+  settings: '设置',
+  cad: 'CAD辅助',
   'new-project': '新建项目',
   projects: '项目管理',
-  settings: '设置',
 }
 
 function RightPanel({ open, panelId, onClose, children }) {
