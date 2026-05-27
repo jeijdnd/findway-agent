@@ -2,10 +2,11 @@
 FindWay Agent 后端主入口
 FastAPI应用，提供API服务
 """
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.exceptions import RequestValidationError
 import uvicorn
 import os
 from pathlib import Path
@@ -20,6 +21,8 @@ from backend.api.api_configs import router as api_configs_router
 from backend.api.merge import router as merge_router
 from backend.api.scanner import router as scanner_router
 from backend.api.chat_history import router as chat_history_router
+from backend.api.logs import router as logs_router
+from backend.services.error_log_service import log_exception
 
 app = FastAPI(
     title="FindWay Agent API",
@@ -53,16 +56,24 @@ app.include_router(cad_router)
 app.include_router(api_configs_router)
 app.include_router(merge_router)
 app.include_router(scanner_router)
+app.include_router(logs_router)
+
+
+def _request_endpoint(request: Request) -> str:
+    return f"{request.method} {request.url.path}"
 
 
 @app.on_event("startup")
 async def on_startup():
     """启动时确保用户数据目录存在"""
-    from backend.api.chat_history import get_chat_history_dir, get_chat_history_file
-    data_dir = get_chat_history_dir()
-    history_file = get_chat_history_file()
-    print(f"对话历史目录: {data_dir}")
-    print(f"对话历史文件: {history_file}")
+    from backend.services.app_data import get_app_data_dir
+    import os as _os
+
+    data_dir = get_app_data_dir()
+    print(f"用户数据目录: {data_dir}")
+    print(f"对话历史: {_os.path.join(data_dir, 'chat_history.json')}")
+    print(f"对话日志: {_os.path.join(data_dir, 'chat_log.json')}")
+    print(f"错误日志: {_os.path.join(data_dir, 'error_log.json')}")
 
 
 @app.get("/api/health")
@@ -75,21 +86,33 @@ async def health_check():
     }
 
 
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    log_exception(_request_endpoint(request), exc)
+    return JSONResponse(
+        status_code=422,
+        content={"error": True, "message": str(exc.errors())},
+    )
+
+
 @app.exception_handler(HTTPException)
-async def http_exception_handler(request, exc):
+async def http_exception_handler(request: Request, exc: HTTPException):
     """HTTP异常处理器"""
+    if exc.status_code >= 400:
+        log_exception(_request_endpoint(request), exc)
     return JSONResponse(
         status_code=exc.status_code,
-        content={"error": True, "message": str(exc.detail)}
+        content={"error": True, "message": str(exc.detail)},
     )
 
 
 @app.exception_handler(Exception)
-async def general_exception_handler(request, exc):
+async def general_exception_handler(request: Request, exc: Exception):
     """通用异常处理器"""
+    log_exception(_request_endpoint(request), exc)
     return JSONResponse(
         status_code=500,
-        content={"error": True, "message": f"服务器内部错误: {str(exc)}"}
+        content={"error": True, "message": f"服务器内部错误: {str(exc)}"},
     )
 
 # 生产模式：添加静态文件服务

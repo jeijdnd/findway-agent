@@ -17,6 +17,7 @@ from backend.api.chat_permissions import (
     extract_directory_path,
     is_scan_directory_request,
 )
+from backend.services.chat_log_service import append_chat_log
 
 router = APIRouter()
 
@@ -71,6 +72,26 @@ def _ensure_llm_api_key(api_config_id: Optional[str] = None) -> Optional[str]:
         return None
     return resolved_id
 
+
+def _record_chat_log(
+    request_message: str,
+    reply: str,
+    chat_id: Optional[str] = None,
+    action: Optional[str] = None,
+    data: Optional[dict] = None,
+) -> None:
+    try:
+        append_chat_log(
+            request_message=request_message,
+            response_reply=reply,
+            chat_id=chat_id,
+            action=action,
+            data=data,
+        )
+    except Exception as e:
+        print(f"写入对话日志失败: {e}")
+
+
 @router.post("/api/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
     """聊天接口，接收用户消息，返回AI回复（非流式）"""
@@ -81,20 +102,27 @@ async def chat(request: ChatRequest):
             if not scan_path:
                 reply = "请提供要扫描的目录完整路径，例如：D:\\Projects"
                 saved = append_exchange(request.chat_id, request.message, reply)
+                cid = saved.get("id")
+                _record_chat_log(request.message, reply, cid, None, {"chat_id": cid})
                 return ChatResponse(
                     reply=reply,
                     action=None,
-                    data={"chat_id": saved.get("id")},
+                    data={"chat_id": cid},
                 )
             reply = (
                 f"需要扫描目录：{scan_path}\n"
                 "请在弹出的确认框中授权；拒绝后将回复「已取消」。"
             )
             saved = append_exchange(request.chat_id, request.message, reply)
+            cid = saved.get("id")
+            resp_data = {"path": scan_path, "chat_id": cid}
+            _record_chat_log(
+                request.message, reply, cid, "scan_directory", resp_data
+            )
             return ChatResponse(
                 reply=reply,
                 action="scan_directory",
-                data={"path": scan_path, "chat_id": saved.get("id")},
+                data=resp_data,
             )
 
         stored = get_messages_for_llm(request.chat_id)
@@ -102,11 +130,9 @@ async def chat(request: ChatRequest):
 
         api_config_id = _ensure_llm_api_key(request.api_config_id)
         if not api_config_id:
-            return ChatResponse(
-                reply="错误：API密钥未配置，请设置环境变量 LLM_API_KEY 或在设置中填写 api_key",
-                action=None,
-                data=None,
-            )
+            reply = "错误：API密钥未配置，请设置环境变量 LLM_API_KEY 或在设置中填写 api_key"
+            _record_chat_log(request.message, reply, request.chat_id)
+            return ChatResponse(reply=reply, action=None, data=None)
 
         # 使用LLM引擎获取回复（传入已解析的 api_config_id，确保 api_key 生效）
         reply = await llm_engine.chat(
@@ -138,11 +164,11 @@ async def chat(request: ChatRequest):
             data = {}
         
         saved = append_exchange(request.chat_id, request.message, reply)
-        return ChatResponse(
-            reply=reply,
-            action=action,
-            data={**(data or {}), "chat_id": saved.get("id")},
+        resp_data = {**(data or {}), "chat_id": saved.get("id")}
+        _record_chat_log(
+            request.message, reply, saved.get("id"), action, resp_data
         )
+        return ChatResponse(reply=reply, action=action, data=resp_data)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"聊天处理失败: {str(e)}")
 

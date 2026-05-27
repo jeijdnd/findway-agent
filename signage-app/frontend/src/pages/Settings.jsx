@@ -1,4 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react'
+import SettingsLogsPanel from '../components/SettingsLogsPanel'
+
+const SETTINGS_SECTIONS = [
+  { id: 'general', label: '常规配置' },
+  { id: 'logs', label: '日志' },
+]
 
 const EMPTY_API_FORM = {
   name: '',
@@ -19,6 +25,7 @@ function generateApiId(name) {
 }
 
 function Settings() {
+  const [activeSection, setActiveSection] = useState('general')
   const [config, setConfig] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -330,27 +337,70 @@ function Settings() {
     }
   }
 
+  const settingsNav = (
+    <nav className="settings-nav">
+      {SETTINGS_SECTIONS.map((sec) => (
+        <button
+          key={sec.id}
+          type="button"
+          className={`settings-nav-item ${activeSection === sec.id ? 'active' : ''}`}
+          onClick={() => setActiveSection(sec.id)}
+        >
+          {sec.label}
+        </button>
+      ))}
+    </nav>
+  )
+
+  if (activeSection === 'logs') {
+    return (
+      <div className="settings-layout">
+        {settingsNav}
+        <div className="settings-content">
+          <SettingsLogsPanel />
+        </div>
+      </div>
+    )
+  }
+
   if (loading) {
-    return <div className="loading">加载配置中...</div>
+    return (
+      <div className="settings-layout">
+        {settingsNav}
+        <div className="settings-content">
+          <div className="loading">加载配置中...</div>
+        </div>
+      </div>
+    )
   }
 
   if (error) {
     return (
-      <div className="error-state">
-        <h2>加载失败</h2>
-        <p>{error}</p>
-        <button className="btn-primary" onClick={fetchConfig} style={{ marginTop: '12px' }}>
-          重试
-        </button>
+      <div className="settings-layout">
+        {settingsNav}
+        <div className="settings-content">
+          <div className="error-state">
+            <h2>加载失败</h2>
+            <p>{error}</p>
+            <button className="btn-primary" onClick={fetchConfig} style={{ marginTop: '12px' }}>
+              重试
+            </button>
+          </div>
+        </div>
       </div>
     )
   }
 
   if (!config) {
     return (
-      <div className="empty-state">
-        <h2>配置为空</h2>
-        <p>无法加载配置文件</p>
+      <div className="settings-layout">
+        {settingsNav}
+        <div className="settings-content">
+          <div className="empty-state">
+            <h2>配置为空</h2>
+            <p>无法加载配置文件</p>
+          </div>
+        </div>
       </div>
     )
   }
@@ -379,7 +429,9 @@ function Settings() {
   }
 
   return (
-    <div>
+    <div className="settings-layout">
+      {settingsNav}
+      <div className="settings-content">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
         <h2 style={{ fontSize: '18px' }}>开发者控制台</h2>
         <div style={{ display: 'flex', gap: '8px' }}>
@@ -979,6 +1031,7 @@ function Settings() {
           </div>
         </div>
       )}
+      </div>
     </div>
   )
 }

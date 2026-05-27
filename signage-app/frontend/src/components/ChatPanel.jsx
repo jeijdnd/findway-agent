@@ -7,6 +7,15 @@ const WELCOME_MESSAGE = {
     '你好！我是标识Agent，建筑导视标识设计AI助手。\n\n我可以帮你：\n1. 创建新项目\n2. 搜索旧项目\n3. 对比清单\n4. 查询规范\n\n请告诉我你需要什么帮助？',
 }
 
+/** 解析后端 scan_directory 动作与目录路径 */
+function resolveScanDirectoryPath(responseBody) {
+  if (!responseBody || responseBody.action !== 'scan_directory') {
+    return null
+  }
+  const path = responseBody.data?.path ?? responseBody.path
+  return typeof path === 'string' && path.trim() ? path.trim() : null
+}
+
 function isWelcomeOnly(messages) {
   return (
     messages.length === 1 &&
@@ -112,57 +121,63 @@ function ChatPanel({ onAction, chatId, onChatIdChange, onHistoryChange, newChatS
     }
   }, [newChatSignal])
 
-  const handleScanDirectory = async (path, currentMessages, currentChatId) => {
-    try {
-      const permission = await requestFileOperationPermission(path, 'scan')
-      if (!permission.granted) {
-        const cancelled = { role: 'assistant', content: '已取消' }
-        const withCancel = [...currentMessages, cancelled]
-        setMessages(withCancel)
-        await syncHistory(withCancel, currentChatId)
-        return
-      }
+  /**
+   * scan_directory：request-permission → 确认框 → scan 或「已取消」
+   */
+  const handleScanDirectory = useCallback(
+    async (path, currentMessages, currentChatId) => {
+      try {
+        const permission = await requestFileOperationPermission(path, 'scan')
+        if (!permission.granted) {
+          const cancelled = { role: 'assistant', content: '已取消' }
+          const withCancel = [...currentMessages, cancelled]
+          setMessages(withCancel)
+          await syncHistory(withCancel, currentChatId)
+          return
+        }
 
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 60000)
-      const scanRes = await fetch('/api/scanner/scan', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          root_path: path,
-          permission_id: permission.permission_id,
-        }),
-        signal: controller.signal,
-      })
-      clearTimeout(timeoutId)
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 60000)
+        const scanRes = await fetch('/api/scanner/scan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            root_path: path,
+            permission_id: permission.permission_id,
+          }),
+          signal: controller.signal,
+        })
+        clearTimeout(timeoutId)
 
-      if (!scanRes.ok) {
-        const errData = await scanRes.json().catch(() => ({}))
-        throw new Error(errData.detail || errData.message || `HTTP ${scanRes.status}`)
-      }
+        if (!scanRes.ok) {
+          const errData = await scanRes.json().catch(() => ({}))
+          throw new Error(errData.detail || errData.message || `HTTP ${scanRes.status}`)
+        }
 
-      const result = await scanRes.json()
-      const count = result.count ?? result.projects?.length ?? 0
-      const summary = {
-        role: 'assistant',
-        content: `扫描完成，在「${path}」下发现 ${count} 个项目。可在「项目仪表盘」中查看扫描结果。`,
+        const result = await scanRes.json()
+        const count = result.count ?? result.projects?.length ?? 0
+        const summary = {
+          role: 'assistant',
+          content: `扫描完成，在「${path}」下发现 ${count} 个项目。可在「项目仪表盘」中查看扫描结果。`,
+        }
+        const withResult = [...currentMessages, summary]
+        setMessages(withResult)
+        await syncHistory(withResult, currentChatId)
+        if (onAction) {
+          onAction('open_scan', { path })
+        }
+      } catch (err) {
+        const errMsg = {
+          role: 'assistant',
+          content: `扫描失败: ${err.message}`,
+        }
+        const withErr = [...currentMessages, errMsg]
+        setMessages(withErr)
+        await syncHistory(withErr, currentChatId)
       }
-      const withResult = [...currentMessages, summary]
-      setMessages(withResult)
-      await syncHistory(withResult, currentChatId)
-      if (onAction) {
-        onAction('open_scan', { path })
-      }
-    } catch (err) {
-      const errMsg = {
-        role: 'assistant',
-        content: `扫描失败: ${err.message}`,
-      }
-      const withErr = [...currentMessages, errMsg]
-      setMessages(withErr)
-      await syncHistory(withErr, currentChatId)
-    }
-  }
+    },
+    [syncHistory, onAction]
+  )
 
   const sendMessage = async () => {
     const text = inputValue.trim()
@@ -200,12 +215,13 @@ function ChatPanel({ onAction, chatId, onChatIdChange, onHistoryChange, newChatS
       activeChatId = data.data?.chat_id || activeChatId
       activeChatId = await syncHistory(messagesAfterReply, activeChatId)
 
-      if (data.action === 'scan_directory' && data.data?.path) {
-        await handleScanDirectory(data.data.path, messagesAfterReply, activeChatId)
+      const scanPath = resolveScanDirectoryPath(data)
+      if (scanPath) {
+        await handleScanDirectory(scanPath, messagesAfterReply, activeChatId)
         return
       }
 
-      if (data.action && onAction) {
+      if (data.action && data.action !== 'scan_directory' && onAction) {
         onAction(data.action, data.data)
       }
     } catch (error) {
