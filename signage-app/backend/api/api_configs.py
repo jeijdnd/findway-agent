@@ -148,11 +148,13 @@ async def test_api_config(config_id: str):
     if not api_config:
         raise HTTPException(status_code=404, detail=f"配置 '{config_id}' 不存在")
 
-    reply = await llm_engine.chat(
+    result = await llm_engine.chat(
         message="Hello",
         history=[],
         api_config_id=config_id,
+        use_tools=False,
     )
+    reply = result.reply
 
     # 判断是否成功
     if reply.startswith("错误：") or reply.startswith("LLM调用失败"):

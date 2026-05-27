@@ -1,11 +1,11 @@
 """
 聊天API模块
-提供对话接口，支持LLM对话引擎，流式输出
+提供对话接口，Function Calling 后端执行工具并回传结果
 """
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from typing import List, Optional, AsyncGenerator
+from typing import List, Optional, AsyncGenerator, Dict, Any
 import json
 
 from backend.services.llm_engine import llm_engine
@@ -13,17 +13,19 @@ from backend.api.chat_history import (
     append_exchange,
     get_messages_for_llm,
 )
-from backend.api.chat_permissions import extract_directory_path
 from backend.services.chat_log_service import append_chat_log
 from backend.services.project_memory import project_memory
+from backend.skills import skill_manager
 
 router = APIRouter()
+
 
 class ChatMessage(BaseModel):
     """聊天消息数据模型"""
     role: str
     content: str
     timestamp: str
+
 
 class ChatRequest(BaseModel):
     """聊天请求数据模型"""
@@ -48,63 +50,34 @@ class ChatResponse(BaseModel):
     action: Optional[str] = None
     data: Optional[dict] = None
 
+
 def _resolve_chat_api_config_id(api_config_id: Optional[str] = None) -> Optional[str]:
-    """解析本次对话应使用的 API 配置 ID（请求未指定时使用 default_api）"""
     if api_config_id:
         if llm_engine.get_config_by_id(api_config_id):
             return api_config_id
         return None
-
     default_config = llm_engine.get_default_config()
     return default_config.get("id") if default_config else None
 
 
 def _ensure_llm_api_key(api_config_id: Optional[str] = None) -> Optional[str]:
-    """校验 LLM API Key 是否可用，返回解析后的配置 ID"""
     resolved_id = _resolve_chat_api_config_id(api_config_id)
     if not resolved_id:
         return None
-
     api_config = llm_engine.resolve_api_config(resolved_id)
     if not api_config or not api_config.get("api_key"):
         return None
     return resolved_id
 
 
-def _apply_intent(
-    intent: str, message: str
-) -> tuple[Optional[str], Optional[dict], Optional[str]]:
-    """
-    根据 infer_intent 结果设置 action/data；scan_directory 时返回需覆盖的固定回复。
-    返回 (action, data, reply_override)
-    """
-    if intent == "scan_directory":
-        scan_path = extract_directory_path(message)
-        if not scan_path:
-            return (
-                None,
-                {},
-                "请提供要扫描的目录完整路径，例如：D:\\Projects",
-            )
-        return (
-            "scan_directory",
-            {"path": scan_path},
-            (
-                f"需要扫描目录：{scan_path}\n"
-                "请在弹出的确认框中授权；拒绝后将回复「已取消」。"
-            ),
-        )
-    if intent == "create_project":
-        return "create_project", {}, None
-    if intent == "search_old_project":
-        return "search_old_project", {}, None
-    if intent == "compare_list":
-        return "compare_list", {}, None
-    if intent == "query_spec":
-        return "query_spec", {}, None
-    if intent == "merge_tuding":
-        return "merge_tuding", {}, None
-    return None, None, None
+async def _execute_tool(name: str, args: Dict[str, Any]) -> Dict[str, Any]:
+    return await skill_manager.execute(name, **args)
+
+
+def _primary_action(actions: List[str]) -> Optional[str]:
+    if not actions:
+        return None
+    return actions[0]
 
 
 def _record_chat_log(
@@ -128,7 +101,7 @@ def _record_chat_log(
 
 @router.post("/api/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
-    """聊天接口，接收用户消息，返回AI回复（非流式）"""
+    """聊天接口：LLM Function Calling + 后端执行技能 + 结果回传"""
     try:
         stored = get_messages_for_llm(request.chat_id)
         history_dicts = project_memory.get_context_history(
@@ -143,19 +116,16 @@ async def chat(request: ChatRequest):
             _record_chat_log(request.message, reply, request.chat_id)
             return ChatResponse(reply=reply, action=None, data=None)
 
-        intent = await llm_engine.infer_intent(
-            message=request.message, history=history_dicts
-        )
-        action, data, reply_override = _apply_intent(intent, request.message)
-
-        reply = await llm_engine.chat(
+        result = await llm_engine.chat(
             message=request.message,
             history=history_dicts,
             api_config_id=api_config_id,
             project_id=request.project_id,
+            tool_executor=_execute_tool,
         )
-        if reply_override is not None:
-            reply = reply_override
+        reply = result.reply
+        action = _primary_action(result.actions)
+        action_data = dict(result.action_data)
 
         project_memory.append_exchange(
             request.project_id, request.message, reply
@@ -168,7 +138,10 @@ async def chat(request: ChatRequest):
         )
 
         saved = append_exchange(request.chat_id, request.message, reply)
-        resp_data = {**(data or {}), "chat_id": saved.get("id")}
+        resp_data = {**action_data, "chat_id": saved.get("id")}
+        if result.tools_called:
+            resp_data["tools_called"] = result.tools_called
+
         _record_chat_log(
             request.message, reply, saved.get("id"), action, resp_data
         )
@@ -179,10 +152,9 @@ async def chat(request: ChatRequest):
 
 @router.post("/api/chat/stream")
 async def chat_stream(request: StreamChatRequest):
-    """流式聊天接口，返回 text/event-stream"""
+    """流式聊天接口（工具调用后输出最终回复）"""
     async def event_generator() -> AsyncGenerator[str, None]:
         try:
-            # 优先使用请求中的 history，否则从持久化记录加载
             if request.history is not None:
                 raw_history = [
                     {"role": m.get("role", "user"), "content": m.get("content", "")}
@@ -205,22 +177,17 @@ async def chat_stream(request: StreamChatRequest):
                 yield f'data: {json.dumps({"type": "error", "content": "错误：API密钥未配置，请设置环境变量 LLM_API_KEY 或在设置中填写 api_key"}, ensure_ascii=False)}\n\n'
                 return
 
-            full_reply = ""
-            async for token in llm_engine.chat_stream(
+            result = await llm_engine.chat(
                 message=request.message,
                 history=history_dicts,
                 api_config_id=api_config_id,
                 project_id=request.project_id,
-            ):
-                full_reply += token
-                yield f'data: {json.dumps({"type": "token", "content": token}, ensure_ascii=False)}\n\n'
-
-            intent = await llm_engine.infer_intent(
-                message=request.message, history=history_dicts
+                tool_executor=_execute_tool,
             )
-            action, data, reply_override = _apply_intent(intent, request.message)
-            if reply_override is not None:
-                full_reply = reply_override
+            full_reply = result.reply
+            for char in full_reply:
+                yield f'data: {json.dumps({"type": "token", "content": char}, ensure_ascii=False)}\n\n'
+            action = _primary_action(result.actions)
 
             project_memory.append_exchange(
                 request.project_id, request.message, full_reply
@@ -235,13 +202,13 @@ async def chat_stream(request: StreamChatRequest):
             saved = append_exchange(request.chat_id, request.message, full_reply)
 
             metadata = {
-                "intent": intent,
                 "action": action,
                 "project_id": request.project_id,
                 "chat_id": saved.get("id"),
             }
-            if data:
-                metadata.update(data)
+            metadata.update(result.action_data)
+            if result.tools_called:
+                metadata["tools_called"] = result.tools_called
             yield f'data: {json.dumps({"type": "done", "metadata": metadata}, ensure_ascii=False)}\n\n'
 
         except Exception as e:
@@ -267,4 +234,3 @@ async def get_chat_models():
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"获取模型列表失败: {str(e)}")
-

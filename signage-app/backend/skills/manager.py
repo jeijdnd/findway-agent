@@ -115,6 +115,39 @@ class SkillManager:
                 instances.append(inst)
         return instances
 
+    def get_openai_tools(self) -> List[Dict[str, Any]]:
+        """生成 OpenAI Function Calling 的 tools 列表（不含系统内建技能）"""
+        tools: List[Dict[str, Any]] = []
+        for name, info in self._skills.items():
+            if not info["enabled"] or info.get("internal"):
+                continue
+            meta = info["meta"]
+            params = meta.get("parameters") or {}
+            properties: Dict[str, Any] = {}
+            required: List[str] = []
+            for key, spec in params.items():
+                if isinstance(spec, dict):
+                    properties[key] = {
+                        "type": spec.get("type", "string"),
+                        "description": spec.get("description", ""),
+                    }
+                else:
+                    properties[key] = {"type": "string", "description": str(spec)}
+                required.append(key)
+            tools.append({
+                "type": "function",
+                "function": {
+                    "name": name,
+                    "description": meta.get("description", ""),
+                    "parameters": {
+                        "type": "object",
+                        "properties": properties,
+                        "required": required,
+                    },
+                },
+            })
+        return tools
+
     def get_tools_prompt(self) -> str:
         """生成注入 LLM System Prompt 的工具描述"""
         lines = ["## 可用技能工具", "以下技能已启用，可在回复中建议用户调用：", ""]

@@ -96,9 +96,10 @@ async def summarize_errors(body: SummarizeErrorsRequest):
         )
 
     resolved_id = api_config.get("id")
-    document = await llm_engine.chat(
+    result = await llm_engine.chat(
         message=prompt,
         history=[],
         api_config_id=resolved_id,
+        use_tools=False,
     )
-    return {"document": document, "error_count": len(errors)}
+    return {"document": result.reply, "error_count": len(errors)}

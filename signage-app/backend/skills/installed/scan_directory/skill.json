@@ -8,7 +8,11 @@
   "parameters": {
     "path": {
       "type": "string",
-      "description": "要扫描的目录路径"
+      "description": "要扫描的 Windows 目录完整路径，例如 E:\\Projects"
+    },
+    "max_depth": {
+      "type": "integer",
+      "description": "递归深度，默认 3"
     }
   }
 }

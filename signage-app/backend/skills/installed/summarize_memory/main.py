@@ -38,11 +38,13 @@ class SummarizeMemorySkill(BaseSkill):
 助手：{assistant_reply}
 """
 
-        updated = await llm_engine.chat(
+        result = await llm_engine.chat(
             message=prompt,
             history=[],
             api_config_id=kwargs.get("api_config_id"),
+            use_tools=False,
         )
+        updated = result.reply
         if updated.startswith("错误") or updated.startswith("LLM调用失败"):
             return {"success": False, "error": updated}
 
