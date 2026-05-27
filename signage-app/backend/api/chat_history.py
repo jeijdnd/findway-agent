@@ -145,6 +145,18 @@ def append_exchange(
                 chats.sort(key=lambda c: c.get("updated_at", ""), reverse=True)
                 _save_all(chats)
                 return chat
+        # chat_id 由前端传入但尚未落盘时，使用该 id 新建
+        new_chat = {
+            "id": chat_id,
+            "title": _generate_title([user_msg]),
+            "messages": [user_msg, assistant_msg],
+            "created_at": now,
+            "updated_at": now,
+        }
+        chats.insert(0, new_chat)
+        chats.sort(key=lambda c: c.get("updated_at", ""), reverse=True)
+        _save_all(chats)
+        return new_chat
 
     new_chat = {
         "id": f"chat_{uuid.uuid4().hex[:12]}",
@@ -206,10 +218,16 @@ async def get_chat_by_id(chat_id: str):
     raise HTTPException(status_code=404, detail="对话不存在")
 
 
+def _message_to_dict(m: ChatMessageModel) -> dict:
+    if hasattr(m, "model_dump"):
+        return m.model_dump()
+    return m.dict()
+
+
 @router.post("/api/chat/history")
 async def save_chat_history(body: SaveChatRequest):
     """保存或更新对话"""
-    messages = [m.dict() for m in body.messages]
+    messages = [_message_to_dict(m) for m in body.messages]
     chat = upsert_chat(body.id, messages, body.title)
     return {
         "id": chat.get("id"),

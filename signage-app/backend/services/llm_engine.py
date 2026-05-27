@@ -374,6 +374,11 @@ class LLMEngine:
         merge_keywords = ["合并兔钉", "兔钉合并", "兔钉导出", "导出合并"]
         if any(kw in message_lower for kw in merge_keywords):
             return "merge_tuding"
+
+        # 扫描目录意图
+        scan_keywords = ["扫描目录", "扫描文件夹", "扫描文件", "访问目录", "访问文件夹"]
+        if any(kw in message_lower for kw in scan_keywords):
+            return "scan_directory"
         
         return "general"
 

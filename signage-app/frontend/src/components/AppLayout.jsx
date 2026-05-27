@@ -279,6 +279,9 @@ function AppLayout() {
     } else if (action === 'merge_tuding') {
       setActiveTab('merge')
       setRefreshKey((prev) => prev + 1)
+    } else if (action === 'open_scan') {
+      setActiveTab('dashboard')
+      setCommandTrigger({ type: 'scan', nonce: Date.now() })
     }
     if (data?.chat_id) {
       setCurrentChatId(data.chat_id)

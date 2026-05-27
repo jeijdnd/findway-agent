@@ -42,6 +42,8 @@ if not is_production:
     )
 
 # 核心 API 路由（须在任意条件分支之前注册，确保开发/生产模式均可用）
+# chat_history 须在 chat 之前注册，避免历史 API 被其它路由干扰
+app.include_router(chat_history_router)
 app.include_router(projects_router)
 app.include_router(chat_router)
 app.include_router(matching_router)
@@ -51,7 +53,16 @@ app.include_router(cad_router)
 app.include_router(api_configs_router)
 app.include_router(merge_router)
 app.include_router(scanner_router)
-app.include_router(chat_history_router)
+
+
+@app.on_event("startup")
+async def on_startup():
+    """启动时确保用户数据目录存在"""
+    from backend.api.chat_history import get_chat_history_dir, get_chat_history_file
+    data_dir = get_chat_history_dir()
+    history_file = get_chat_history_file()
+    print(f"对话历史目录: {data_dir}")
+    print(f"对话历史文件: {history_file}")
 
 
 @app.get("/api/health")

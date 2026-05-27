@@ -13,6 +13,10 @@ from backend.api.chat_history import (
     append_exchange,
     get_messages_for_llm,
 )
+from backend.api.chat_permissions import (
+    extract_directory_path,
+    is_scan_directory_request,
+)
 
 router = APIRouter()
 
@@ -71,6 +75,28 @@ def _ensure_llm_api_key(api_config_id: Optional[str] = None) -> Optional[str]:
 async def chat(request: ChatRequest):
     """聊天接口，接收用户消息，返回AI回复（非流式）"""
     try:
+        # 目录扫描：先走权限确认，由前端调用 request-permission
+        if is_scan_directory_request(request.message):
+            scan_path = extract_directory_path(request.message)
+            if not scan_path:
+                reply = "请提供要扫描的目录完整路径，例如：D:\\Projects"
+                saved = append_exchange(request.chat_id, request.message, reply)
+                return ChatResponse(
+                    reply=reply,
+                    action=None,
+                    data={"chat_id": saved.get("id")},
+                )
+            reply = (
+                f"需要扫描目录：{scan_path}\n"
+                "请在弹出的确认框中授权；拒绝后将回复「已取消」。"
+            )
+            saved = append_exchange(request.chat_id, request.message, reply)
+            return ChatResponse(
+                reply=reply,
+                action="scan_directory",
+                data={"path": scan_path, "chat_id": saved.get("id")},
+            )
+
         stored = get_messages_for_llm(request.chat_id)
         history_dicts = stored
 
