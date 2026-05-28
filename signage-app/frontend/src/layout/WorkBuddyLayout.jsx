@@ -97,21 +97,28 @@ function WorkBuddyLayout({
             flexDirection: 'column',
           }}
         >
-          <div
-            style={{
-              background: '#fbbf24',
-              color: '#000',
-              padding: '2px 6px',
-              fontSize: '10px',
-              textAlign: 'center',
-              flexShrink: 0,
-            }}
-          >
-            W:{right.width}px
+          {/* 第一层调试：容器本身 */}
+          <div style={{ background: '#fbbf24', padding: '4px', fontSize: '10px', flexShrink: 0 }}>
+            COL-RIGHT: {right.width}px | hasFunc: {String(!!renderRightToolbar)}
           </div>
-          {console.log('Rendering right toolbar, width:', right.width, 'renderRightToolbar:', !!renderRightToolbar)}
-          {renderRightToolbar ? renderRightToolbar(handleSlideSelect) : (
-            <div style={{ color: 'red', padding: '10px' }}>NO FUNC</div>
+
+          {/* 第二层调试：直接硬编码内容 */}
+          <div style={{ background: '#3b82f6', color: '#fff', padding: '10px', flexShrink: 0 }}>
+            HARD CODED BUTTON
+          </div>
+
+          {/* 第三层：尝试调用 renderRightToolbar */}
+          {renderRightToolbar ? (
+            <>
+              <div style={{ background: '#10b981', padding: '4px', flexShrink: 0 }}>
+                CALLING renderRightToolbar...
+              </div>
+              {renderRightToolbar(handleSlideSelect)}
+            </>
+          ) : (
+            <div style={{ background: '#ef4444', color: '#fff', padding: '10px', flexShrink: 0 }}>
+              NO RENDER FUNC!
+            </div>
           )}
         </div>
       </div>
