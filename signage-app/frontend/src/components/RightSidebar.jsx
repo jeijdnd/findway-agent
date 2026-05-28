@@ -9,23 +9,23 @@ export const SIDEBAR_PANELS = [
 
 function RightSidebar({ activePanel, onSelect }) {
   return (
-    <aside className="right-sidebar" aria-label="快捷操作">
+    <aside className="right-toolbar" aria-label="快捷操作">
       {SIDEBAR_PANELS.map((item) => {
         const isActive = activePanel === item.id
         return (
           <button
             key={item.id}
             type="button"
-            className={`right-sidebar-btn ${isActive ? 'active' : ''}`}
+            className={`right-toolbar-btn ${isActive ? 'active' : ''}`}
             title={item.title}
             aria-label={item.title}
             aria-pressed={isActive}
             onClick={() => onSelect(isActive ? null : item.id)}
           >
-            <span className="right-sidebar-icon" aria-hidden="true">
+            <span className="right-toolbar-icon" aria-hidden="true">
               {item.icon}
             </span>
-            <span className="right-sidebar-label">{item.label}</span>
+            <span className="right-toolbar-label">{item.label}</span>
           </button>
         )
       })}

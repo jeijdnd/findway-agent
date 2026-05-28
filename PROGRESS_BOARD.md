@@ -305,3 +305,11 @@
 | UI.2 | 中间聊天区（消息 + 输入框，修复遮挡） | ✅ |
 | UI.3 | 右栏工具按钮（替代顶部标签栏） | ✅ |
 | UI.4 | 三栏拖拽缩放 + localStorage 记忆宽度 | ✅ |
+
+---
+
+## Bugfix：右侧工具栏可见性（P04，Cursor）
+
+| ID | 任务 | 状态 | 备注 |
+|----|------|------|------|
+| P04.1 | RightSidebar.jsx 类名与 App.css 对齐 | ✅ | `right-sidebar` → `right-toolbar`（含 btn/icon/label） |
