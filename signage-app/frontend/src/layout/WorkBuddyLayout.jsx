@@ -47,6 +47,28 @@ function WorkBuddyLayout({
 
   return (
     <div className="workbuddy-layout">
+      {/* === 终极调试：如果看不到这个红色块，说明 React 根本没渲染 === */}
+      <div
+        style={{
+          position: 'fixed',
+          top: '50%',
+          right: 0,
+          width: '200px',
+          height: '200px',
+          background: 'red',
+          zIndex: 99999,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: 'white',
+          fontSize: '20px',
+          fontWeight: 'bold',
+        }}
+      >
+        DEBUG
+      </div>
+      {/* === 调试结束 === */}
+
       <div className="workbuddy-columns">
         <div className="workbuddy-col-left" style={{ width: left.width, flexShrink: 0 }}>
           {leftSidebar}
@@ -63,7 +85,10 @@ function WorkBuddyLayout({
         <ResizeHandle onMouseDown={right.startDragReverse} />
 
         <div className="workbuddy-col-right" style={{ width: right.width, flexShrink: 0 }}>
-          {renderRightToolbar ? renderRightToolbar(handleSlideSelect) : null}
+          {console.log('Rendering right toolbar, width:', right.width, 'renderRightToolbar:', !!renderRightToolbar)}
+          {renderRightToolbar ? renderRightToolbar(handleSlideSelect) : (
+            <div style={{ color: 'red' }}>NO RENDER FUNC</div>
+          )}
         </div>
       </div>
     </div>
