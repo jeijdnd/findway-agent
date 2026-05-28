@@ -84,10 +84,34 @@ function WorkBuddyLayout({
 
         <ResizeHandle onMouseDown={right.startDragReverse} />
 
-        <div className="workbuddy-col-right" style={{ width: right.width, flexShrink: 0 }}>
+        <div
+          className="workbuddy-col-right"
+          style={{
+            width: right.width,
+            flexShrink: 0,
+            minWidth: '180px',
+            background: '#0f172a',
+            border: '2px solid blue',
+            color: '#fff',
+            display: 'flex',
+            flexDirection: 'column',
+          }}
+        >
+          <div
+            style={{
+              background: '#fbbf24',
+              color: '#000',
+              padding: '2px 6px',
+              fontSize: '10px',
+              textAlign: 'center',
+              flexShrink: 0,
+            }}
+          >
+            W:{right.width}px
+          </div>
           {console.log('Rendering right toolbar, width:', right.width, 'renderRightToolbar:', !!renderRightToolbar)}
           {renderRightToolbar ? renderRightToolbar(handleSlideSelect) : (
-            <div style={{ color: 'red' }}>NO RENDER FUNC</div>
+            <div style={{ color: 'red', padding: '10px' }}>NO FUNC</div>
           )}
         </div>
       </div>
