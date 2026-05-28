@@ -29,6 +29,11 @@
   flex-shrink: 0;
 }
 
+.workbuddy-col-right {
+  background: #0f172a !important;
+  border: 2px dashed red !important;
+}
+
 .workbuddy-col-right > .right-toolbar {
   flex: 1;
   width: 100%;
@@ -218,8 +223,10 @@
   gap: 4px;
   height: 100%;
   padding: 10px 8px;
-  background: var(--white);
-  border-left: 1px solid var(--border);
+  background: #1e293b !important;
+  border-left: 3px solid #3b82f6 !important;
+  min-width: 180px !important;
+  width: 100% !important;
   overflow-y: auto;
 }
 
@@ -234,19 +241,19 @@
   flex-direction: column;
   align-items: center;
   gap: 4px;
-  color: var(--text-secondary);
+  color: #e2e8f0;
   transition: background 0.15s, color 0.15s;
   flex-shrink: 0;
 }
 
 .right-toolbar-btn:hover {
-  background: var(--bg);
-  color: var(--text);
+  background: #334155;
+  color: #f8fafc;
 }
 
 .right-toolbar-btn.active {
-  background: #dbeafe;
-  color: var(--primary);
+  background: #3b82f6 !important;
+  color: #fff !important;
 }
 
 .right-toolbar-icon {
@@ -259,6 +266,16 @@
   line-height: 1.2;
   text-align: center;
   word-break: break-all;
+  color: #e2e8f0;
+}
+
+.right-toolbar-extra {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-top: 1px dashed #64748b;
+  padding-top: 8px;
 }
 
 /* 主内容区标题（替代顶部标签栏） */
