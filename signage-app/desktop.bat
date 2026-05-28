@@ -14,5 +14,5 @@ if not exist "venv\Scripts\python.exe" (
   exit /b 1
 )
 
-start /MIN "" "%~dp0node_modules\.bin\electron.cmd" .
+call npm run dev
 exit /b 0

@@ -29,6 +29,8 @@ const APP_ROOT = path.join(__dirname, '..');
 const BACKEND_PORT = 8765;
 const BACKEND_URL = `http://127.0.0.1:${BACKEND_PORT}`;
 const BACKEND_HEALTH_URL = `${BACKEND_URL}/api/health`;
+const VITE_DEV_URL = 'http://localhost:5173';
+const isDev = process.env.NODE_ENV !== 'production' || !app.isPackaged;
 
 let pythonProcess = null;
 let backendStartedByApp = false;
@@ -223,10 +225,11 @@ function createMainWindow() {
       );
     });
 
-    mainWindow.loadURL(BACKEND_URL).catch((err) => {
+    const loadUrl = isDev ? VITE_DEV_URL : BACKEND_URL;
+    mainWindow.loadURL(loadUrl).catch((err) => {
       dialog.showErrorBox(
         '加载失败',
-        `${err.message}\n\n请确认后端已在 ${BACKEND_URL} 运行。`
+        `${err.message}\n\n请确认 ${isDev ? `Vite 已在 ${VITE_DEV_URL} 运行` : `后端已在 ${BACKEND_URL} 运行`}。`
       );
     });
 
@@ -386,7 +389,7 @@ app.whenReady().then(async () => {
 
     const dataDir = getFindWayAgentDataDir();
     console.log(t('electron_data_dir', { path: dataDir }));
-    console.log(t('electron_loading', { url: BACKEND_URL }));
+    console.log(t('electron_loading', { url: isDev ? VITE_DEV_URL : BACKEND_URL }));
     setupIPC();
     createTray();
     createMainWindow();
