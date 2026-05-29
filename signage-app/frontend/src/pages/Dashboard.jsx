@@ -1,156 +1,350 @@
-import React, { useState, useEffect, useCallback } from 'react'
-import { requestFileOperationPermission } from '../utils/filePermission'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 
-function formatFileSize(bytes) {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+const STAGE_OPTIONS = [
+  '概念方案', '方案设计', '施工图', '审图',
+  '清单V1', '清单V2', '竣工图', '已交付', '暂停',
+]
+
+const GROUP_ORDER = ['进行中', '施工阶段', '清单阶段', '已完成', '暂停']
+
+const GROUP_ICONS = {
+  进行中: '🟡',
+  施工阶段: '🔵',
+  清单阶段: '🟢',
+  已完成: '⚪',
+  暂停: '⏸️',
 }
 
-async function confirmDelete(fileName) {
-  const message = `确定要删除文件「${fileName}」吗？此操作不可撤销。`
-  if (window.electronAPI?.showConfirmDialog) {
-    return window.electronAPI.showConfirmDialog({
-      title: '删除文件',
-      message,
-      confirmText: '删除',
-      cancelText: '取消',
-    })
+const FILE_TAGS = ['', '初稿', '审图版', '最终版', '施工图', '竣工图']
+
+function todayStr() {
+  return new Date().toISOString().slice(0, 10)
+}
+
+function yearOptions() {
+  const current = new Date().getFullYear()
+  return Array.from({ length: 10 }, (_, i) => current - 2 + i)
+}
+
+async function collectDroppedNames(items) {
+  const names = []
+  for (const item of items) {
+    const entry = item.webkitGetAsEntry?.()
+    if (entry) {
+      names.push(entry.name)
+    } else if (item.kind === 'file') {
+      const file = item.getAsFile()
+      if (file) names.push(file.name)
+    }
   }
-  return window.confirm(message)
+  return names
 }
 
-function FolderTreeNode({
-  node,
-  permissionId,
-  depth = 0,
-  onChildrenChange,
-}) {
-  const [expanded, setExpanded] = useState(false)
-  const [children, setChildren] = useState(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(null)
-  const [dragOver, setDragOver] = useState(false)
-  const [uploading, setUploading] = useState(false)
-  const [actionMessage, setActionMessage] = useState('')
+function NewProjectForm({ defaultPath, onCreated, onCancel, initialName = '' }) {
+  const [name, setName] = useState(initialName)
+  const [year, setYear] = useState(new Date().getFullYear())
+  const [stage, setStage] = useState('概念方案')
+  const [path, setPath] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
 
-  const loadChildren = useCallback(async () => {
-    setLoading(true)
-    setError(null)
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    if (!name.trim()) {
+      setError('请输入项目名称')
+      return
+    }
+    setSaving(true)
+    setError('')
     try {
-      const response = await fetch('/api/scanner/browse', {
+      const body = { name: name.trim(), year, stage }
+      if (path.trim()) {
+        body.path = path.trim()
+      } else if (defaultPath) {
+        body.path = `${defaultPath}\\${name.trim()}`
+      }
+      const res = await fetch('/api/projects', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path: node.path, permission_id: permissionId }),
+        body: JSON.stringify(body),
       })
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}))
-        throw new Error(errData.detail || errData.message || `HTTP ${response.status}`)
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.detail || `HTTP ${res.status}`)
       }
-      const data = await response.json()
-      setChildren(data)
-      return data
+      const project = await res.json()
+      onCreated(project)
     } catch (err) {
       setError(err.message)
-      return null
     } finally {
-      setLoading(false)
-    }
-  }, [node.path, permissionId])
-
-  const toggleExpand = async () => {
-    if (!expanded && !children) {
-      await loadChildren()
-    }
-    setExpanded((prev) => !prev)
-  }
-
-  const refreshChildren = async () => {
-    const data = await loadChildren()
-    if (data && onChildrenChange) {
-      onChildrenChange(node.path, data)
+      setSaving(false)
     }
   }
 
-  const openFile = async (file) => {
-    if (window.electronAPI?.openPath) {
-      const result = await window.electronAPI.openPath(file.path)
-      if (!result.success && result.error) {
-        setActionMessage(`无法打开: ${result.error}`)
-        setTimeout(() => setActionMessage(''), 3000)
-      }
-    } else {
-      setActionMessage('请在桌面应用中打开文件')
-      setTimeout(() => setActionMessage(''), 3000)
-    }
-  }
+  return (
+    <form className="new-project-form" onSubmit={handleSubmit}>
+      <h3>新建项目</h3>
+      <div className="form-group">
+        <label>项目名称 *</label>
+        <input
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="例如：广州白云党校"
+          autoFocus
+        />
+      </div>
+      <div className="form-row">
+        <div className="form-group">
+          <label>开始年份</label>
+          <select value={year} onChange={(e) => setYear(Number(e.target.value))}>
+            {yearOptions().map((y) => (
+              <option key={y} value={y}>{y}</option>
+            ))}
+          </select>
+        </div>
+        <div className="form-group">
+          <label>当前阶段</label>
+          <select value={stage} onChange={(e) => setStage(e.target.value)}>
+            {STAGE_OPTIONS.map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+      <div className="form-group">
+        <label>项目路径</label>
+        <input
+          type="text"
+          value={path}
+          onChange={(e) => setPath(e.target.value)}
+          placeholder={defaultPath ? `${defaultPath}\\项目名称` : '默认使用配置中的项目根目录'}
+        />
+        <p className="form-hint">留空则自动使用：{defaultPath || '（未配置）'}</p>
+      </div>
+      {error && <p className="form-error">{error}</p>}
+      <div className="form-actions">
+        <button type="button" className="btn-secondary" onClick={onCancel}>取消</button>
+        <button type="submit" className="btn-primary" disabled={saving}>
+          {saving ? '创建中…' : '创建项目'}
+        </button>
+      </div>
+    </form>
+  )
+}
 
-  const deleteFile = async (file) => {
-    const confirmed = await confirmDelete(file.name)
-    if (!confirmed) return
+function ProjectDetail({ project, onClose, onUpdate, onDelete }) {
+  const [files, setFiles] = useState(project.files || [])
+  const [stage, setStage] = useState(project.stage)
+  const [dragOver, setDragOver] = useState(false)
+  const [saving, setSaving] = useState(false)
 
+  useEffect(() => {
+    setFiles(project.files || [])
+    setStage(project.stage)
+  }, [project])
+
+  const saveFiles = async (updatedFiles) => {
+    setSaving(true)
     try {
-      setActionMessage('')
-      const permission = await requestFileOperationPermission(node.path, 'write')
-      if (!permission.granted) {
-        setActionMessage(permission.message || '已取消删除')
-        return
-      }
+      const res = await fetch(`/api/projects/${project.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ files: updatedFiles }),
+      })
+      if (!res.ok) throw new Error('保存失败')
+      const updated = await res.json()
+      setFiles(updated.files || [])
+      onUpdate(updated)
+    } catch {
+      // ignore
+    } finally {
+      setSaving(false)
+    }
+  }
 
-      const response = await fetch('/api/files/delete', {
-        method: 'DELETE',
+  const handleStageChange = async (newStage) => {
+    setStage(newStage)
+    try {
+      const res = await fetch(`/api/projects/${project.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stage: newStage }),
+      })
+      if (!res.ok) throw new Error('更新失败')
+      const updated = await res.json()
+      onUpdate(updated)
+    } catch {
+      setStage(project.stage)
+    }
+  }
+
+  const handleFileFieldChange = (index, field, value) => {
+    const next = files.map((f, i) => (i === index ? { ...f, [field]: value } : f))
+    setFiles(next)
+  }
+
+  const handleFileFieldBlur = () => {
+    saveFiles(files)
+  }
+
+  const addDroppedFiles = async (fileNames) => {
+    if (!fileNames.length) return
+    try {
+      const res = await fetch(`/api/projects/${project.id}/files`, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          path: file.path,
-          permission_id: permission.permission_id,
+          files: fileNames.map((name) => ({
+            name,
+            tag: '',
+            uploaded: todayStr(),
+            modified: '',
+          })),
         }),
       })
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}))
-        throw new Error(errData.detail || errData.message || `HTTP ${response.status}`)
-      }
-      await refreshChildren()
-    } catch (err) {
-      setActionMessage(`删除失败: ${err.message}`)
+      if (!res.ok) throw new Error('添加失败')
+      const updated = await res.json()
+      setFiles(updated.files || [])
+      onUpdate(updated)
+    } catch {
+      // ignore
     }
   }
 
-  const uploadFiles = async (fileList) => {
-    if (!fileList?.length) return
-    try {
-      setUploading(true)
-      setActionMessage('')
-      const permission = await requestFileOperationPermission(node.path, 'write')
-      if (!permission.granted) {
-        setActionMessage(permission.message || '已取消上传')
-        return
-      }
+  const handleDragOver = (e) => {
+    e.preventDefault()
+    setDragOver(true)
+  }
 
-      for (const file of fileList) {
-        const formData = new FormData()
-        formData.append('file', file)
-        formData.append('target_dir', node.path)
-        formData.append('permission_id', permission.permission_id)
-        const response = await fetch('/api/files/upload', { method: 'POST', body: formData })
-        if (!response.ok) {
-          const errData = await response.json().catch(() => ({}))
-          throw new Error(errData.detail || errData.message || `上传 ${file.name} 失败`)
-        }
-      }
-      if (expanded) {
-        await refreshChildren()
-      } else {
-        setExpanded(true)
-        await refreshChildren()
-      }
-      setActionMessage(`已上传 ${fileList.length} 个文件`)
-      setTimeout(() => setActionMessage(''), 2500)
-    } catch (err) {
-      setActionMessage(err.message)
-    } finally {
-      setUploading(false)
+  const handleDragLeave = () => setDragOver(false)
+
+  const handleDrop = async (e) => {
+    e.preventDefault()
+    setDragOver(false)
+    const items = Array.from(e.dataTransfer.items || [])
+    if (items.length) {
+      const names = await collectDroppedNames(items)
+      await addDroppedFiles(names)
+    } else {
+      const raw = Array.from(e.dataTransfer.files || [])
+      await addDroppedFiles(raw.map((f) => f.name))
     }
   }
+
+  const openFolder = () => {
+    if (window.electronAPI?.openPath && project.path) {
+      window.electronAPI.openPath(project.path)
+    }
+  }
+
+  const handleDelete = async () => {
+    const msg = `确定删除项目「${project.name}」？（不会删除磁盘文件）`
+    const confirmed = window.electronAPI?.showConfirmDialog
+      ? await window.electronAPI.showConfirmDialog({
+          title: '删除项目',
+          message: msg,
+          confirmText: '删除',
+          cancelText: '取消',
+        })
+      : window.confirm(msg)
+    if (!confirmed) return
+    await fetch(`/api/projects/${project.id}`, { method: 'DELETE' })
+    onDelete(project.id)
+  }
+
+  return (
+    <div className="project-detail">
+      <div className="project-detail-header">
+        <h3>📁 {project.name}</h3>
+        <button type="button" className="btn-icon" onClick={onClose} title="关闭">✕</button>
+      </div>
+      <div className="project-detail-meta">
+        <span>{project.year}</span>
+        <span>·</span>
+        <select
+          className="stage-select"
+          value={stage}
+          onChange={(e) => handleStageChange(e.target.value)}
+        >
+          {STAGE_OPTIONS.map((s) => (
+            <option key={s} value={s}>{s}</option>
+          ))}
+        </select>
+        <span>·</span>
+        <span>{files.length} 文件</span>
+      </div>
+      {project.path && (
+        <p className="project-detail-path">
+          <code>{project.path}</code>
+          {window.electronAPI?.openPath && (
+            <button type="button" className="btn-link" onClick={openFolder}>打开文件夹</button>
+          )}
+        </p>
+      )}
+
+      <div
+        className={`project-drop-zone ${dragOver ? 'drag-over' : ''}`}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
+        <p>拖放文件夹或文件到此处，自动记录名称与上传时间</p>
+      </div>
+
+      {files.length > 0 && (
+        <div className="project-files-table">
+          <table>
+            <thead>
+              <tr>
+                <th>文件名</th>
+                <th>标签</th>
+                <th>上传日期</th>
+                <th>修改日期</th>
+              </tr>
+            </thead>
+            <tbody>
+              {files.map((file, idx) => (
+                <tr key={`${file.name}-${idx}`}>
+                  <td className="file-name-cell">{file.name}</td>
+                  <td>
+                    <select
+                      value={file.tag || ''}
+                      onChange={(e) => handleFileFieldChange(idx, 'tag', e.target.value)}
+                      onBlur={handleFileFieldBlur}
+                    >
+                      {FILE_TAGS.map((t) => (
+                        <option key={t} value={t}>{t || '无'}</option>
+                      ))}
+                    </select>
+                  </td>
+                  <td>{file.uploaded || '—'}</td>
+                  <td>
+                    <input
+                      type="date"
+                      value={file.modified || ''}
+                      onChange={(e) => handleFileFieldChange(idx, 'modified', e.target.value)}
+                      onBlur={handleFileFieldBlur}
+                    />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {saving && <p className="saving-hint">保存中…</p>}
+
+      <div className="project-detail-actions">
+        <button type="button" className="btn-danger" onClick={handleDelete}>删除项目</button>
+      </div>
+    </div>
+  )
+}
+
+function ProjectCard({ project, onClick, onDropFiles }) {
+  const [dragOver, setDragOver] = useState(false)
 
   const handleDragOver = (e) => {
     e.preventDefault()
@@ -164,259 +358,223 @@ function FolderTreeNode({
     setDragOver(false)
   }
 
-  const handleDrop = (e) => {
+  const handleDrop = async (e) => {
     e.preventDefault()
     e.stopPropagation()
     setDragOver(false)
-    uploadFiles(Array.from(e.dataTransfer.files))
+    const items = Array.from(e.dataTransfer.items || [])
+    let names = []
+    if (items.length) {
+      names = await collectDroppedNames(items)
+    } else {
+      names = Array.from(e.dataTransfer.files || []).map((f) => f.name)
+    }
+    if (names.length) onDropFiles(project.id, names)
   }
 
+  const fileCount = (project.files || []).length
+
   return (
-    <div className="file-tree-node">
-      <div
-        className={`file-tree-row ${dragOver ? 'drag-over' : ''}`}
-        style={{ paddingLeft: `${depth * 16 + 8}px` }}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
-      >
-        <button
-          type="button"
-          className="file-tree-toggle"
-          onClick={toggleExpand}
-          aria-label={expanded ? '收起' : '展开'}
-        >
-          {loading ? '…' : expanded ? '▼' : '▶'}
-        </button>
-        <span className="file-tree-icon">📁</span>
-        <span className="file-tree-name" onClick={toggleExpand} role="presentation">
-          {node.name}
-        </span>
-        <span className="file-tree-count">{node.file_count} 个文件</span>
-        {uploading && <span className="file-tree-action-hint">上传中…</span>}
+    <div
+      className={`project-card ${dragOver ? 'drag-over' : ''}`}
+      onClick={() => onClick(project)}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => e.key === 'Enter' && onClick(project)}
+    >
+      <h3>📁 {project.name}</h3>
+      <div className="project-card-meta">
+        <span>{project.year}</span>
+        <span>·</span>
+        <span className="stage">{project.stage}</span>
+        <span>·</span>
+        <span>{fileCount} 文件</span>
       </div>
-
-      {actionMessage && (
-        <p
-          className="file-tree-message"
-          style={{ paddingLeft: `${depth * 16 + 32}px` }}
-        >
-          {actionMessage}
-        </p>
-      )}
-
-      {expanded && error && (
-        <p className="file-tree-error" style={{ paddingLeft: `${depth * 16 + 32}px` }}>
-          {error}
-        </p>
-      )}
-
-      {expanded && children && (
-        <div className="file-tree-children">
-          {children.folders?.map((folder) => (
-            <FolderTreeNode
-              key={folder.path}
-              node={folder}
-              permissionId={permissionId}
-              depth={depth + 1}
-              onChildrenChange={onChildrenChange}
-            />
-          ))}
-          {children.files?.map((file) => (
-            <div
-              key={file.path}
-              className="file-tree-row file-tree-file-row"
-              style={{ paddingLeft: `${(depth + 1) * 16 + 28}px` }}
-            >
-              <span className="file-tree-icon">📄</span>
-              <button
-                type="button"
-                className="file-tree-file-btn"
-                onClick={() => openFile(file)}
-                title={file.path}
-              >
-                {file.name}
-              </button>
-              <span className="file-tree-size">{formatFileSize(file.size)}</span>
-              <button
-                type="button"
-                className="file-tree-delete-btn"
-                onClick={() => deleteFile(file)}
-                title="删除文件"
-              >
-                ✕
-              </button>
-            </div>
-          ))}
-          {!loading &&
-            !children.folders?.length &&
-            !children.files?.length && (
-              <p
-                className="file-tree-empty"
-                style={{ paddingLeft: `${(depth + 1) * 16 + 28}px` }}
-              >
-                空文件夹 — 拖放文件到此处上传
-              </p>
-            )}
-        </div>
-      )}
     </div>
   )
 }
 
 function Dashboard({ commandTrigger }) {
-  const [rootPath, setRootPath] = useState('')
-  const [scanLoading, setScanLoading] = useState(false)
-  const [scanError, setScanError] = useState(null)
-  const [folders, setFolders] = useState([])
-  const [permissionId, setPermissionId] = useState(null)
-  const [scannedRoot, setScannedRoot] = useState('')
-  const [configLoaded, setConfigLoaded] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [grouped, setGrouped] = useState({})
+  const [defaultPath, setDefaultPath] = useState('')
+  const [showNewForm, setShowNewForm] = useState(false)
+  const [selectedProject, setSelectedProject] = useState(null)
+  const [formInitial, setFormInitial] = useState({ name: '' })
+  const lastTriggerNonce = useRef(0)
 
-  useEffect(() => {
-    async function loadConfig() {
-      try {
-        const res = await fetch('/api/scanner/config')
-        if (res.ok) {
-          const cfg = await res.json()
-          const dirs = cfg.watch_dirs || []
-          if (dirs.length > 0 && !rootPath) {
-            setRootPath(dirs[0])
-          }
-        }
-      } catch {
-        // 用户可手动输入
-      } finally {
-        setConfigLoaded(true)
+  const fetchProjects = useCallback(async () => {
+    try {
+      setError(null)
+      const [projRes, cfgRes] = await Promise.all([
+        fetch('/api/projects'),
+        fetch('/api/projects/config'),
+      ])
+      if (!projRes.ok) throw new Error(`加载项目失败: HTTP ${projRes.status}`)
+      const data = await projRes.json()
+      setGrouped(data.grouped || {})
+      if (cfgRes.ok) {
+        const cfg = await cfgRes.json()
+        setDefaultPath(cfg.default_project_path || '')
       }
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
     }
-    loadConfig()
   }, [])
 
   useEffect(() => {
+    fetchProjects()
+  }, [fetchProjects])
+
+  useEffect(() => {
     if (!commandTrigger?.type) return
-    if (commandTrigger.type === 'scan') {
-      if (commandTrigger.path) {
-        setRootPath(commandTrigger.path)
-      }
-      runScan(commandTrigger.path || rootPath)
+    if (commandTrigger.nonce === lastTriggerNonce.current) return
+    lastTriggerNonce.current = commandTrigger.nonce
+
+    if (commandTrigger.type === 'new-project') {
+      setFormInitial({
+        name: commandTrigger.projectName || '',
+      })
+      setShowNewForm(true)
+      setSelectedProject(null)
     }
   }, [commandTrigger])
 
-  const runScan = async (pathOverride) => {
-    const root = (pathOverride || rootPath).trim()
-    if (!root) {
-      setScanError('请输入要扫描的目录路径')
-      return
-    }
+  const handleProjectCreated = (project) => {
+    setShowNewForm(false)
+    setSelectedProject(project)
+    fetchProjects()
+  }
 
+  const handleProjectUpdate = (updated) => {
+    setSelectedProject(updated)
+    fetchProjects()
+  }
+
+  const handleProjectDelete = () => {
+    setSelectedProject(null)
+    fetchProjects()
+  }
+
+  const handleDropFiles = async (projectId, names) => {
     try {
-      setScanLoading(true)
-      setScanError(null)
-      setFolders([])
-
-      const permission = await requestFileOperationPermission(root, 'scan')
-      if (!permission.granted) {
-        setScanError(permission.message || '您已拒绝此操作，已取消。')
-        return
-      }
-
-      setPermissionId(permission.permission_id)
-
-      const response = await fetch('/api/scanner/scan-folder', {
+      await fetch(`/api/projects/${projectId}/files`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          root_path: root,
-          permission_id: permission.permission_id,
+          files: names.map((name) => ({
+            name,
+            tag: '',
+            uploaded: todayStr(),
+            modified: '',
+          })),
         }),
       })
-
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}))
-        throw new Error(errData.detail || errData.message || `HTTP ${response.status}`)
+      fetchProjects()
+      if (selectedProject?.id === projectId) {
+        const res = await fetch(`/api/projects/${projectId}`)
+        if (res.ok) setSelectedProject(await res.json())
       }
-
-      const data = await response.json()
-      setFolders(data.folders || [])
-      setScannedRoot(data.root_path || root)
-    } catch (err) {
-      setScanError(`扫描失败: ${err.message}`)
-    } finally {
-      setScanLoading(false)
+    } catch {
+      // ignore
     }
   }
 
-  if (!configLoaded) {
-    return <div className="loading">加载中...</div>
+  if (loading) {
+    return <div className="loading">加载项目…</div>
   }
 
-  return (
-    <div className="dashboard-file-browser">
-      <div className="dashboard-header">
-        <h2>项目仪表盘</h2>
-        <p className="dashboard-subtitle">浏览项目文件夹，拖放上传或管理系统中的文件</p>
+  if (error) {
+    return (
+      <div className="error-state">
+        <p>{error}</p>
+        <button className="btn-primary" onClick={fetchProjects}>重试</button>
       </div>
+    )
+  }
 
-      <div className="dashboard-scan-bar">
-        <input
-          type="text"
-          value={rootPath}
-          onChange={(e) => setRootPath(e.target.value)}
-          placeholder="例如：E:\MingRui\_项目文件"
-          className="dashboard-path-input"
-          onKeyDown={(e) => e.key === 'Enter' && runScan()}
-        />
+  const totalProjects = Object.values(grouped).reduce((sum, arr) => sum + arr.length, 0)
+
+  return (
+    <div className="dashboard-lifecycle">
+      <div className="dashboard-header">
+        <div>
+          <h2>项目仪表盘</h2>
+          <p className="dashboard-subtitle">标识项目全生命周期管理器</p>
+        </div>
         <button
+          type="button"
           className="btn-primary"
-          onClick={() => runScan()}
-          disabled={scanLoading}
+          onClick={() => {
+            setFormInitial({ name: '' })
+            setShowNewForm(true)
+          }}
         >
-          {scanLoading ? '扫描中...' : '扫描目录'}
+          + 新建项目
         </button>
       </div>
 
-      {scanError && (
-        <div className="error-state" style={{ padding: '12px 0' }}>
-          <p style={{ margin: '0 0 8px 0' }}>{scanError}</p>
-          <button className="btn-primary" onClick={() => runScan()}>
-            重试
-          </button>
-        </div>
-      )}
-
-      {scannedRoot && !scanError && (
-        <p className="dashboard-root-label">
-          根目录：<code>{scannedRoot}</code>
-          {folders.length > 0 && ` · 共 ${folders.length} 个项目文件夹`}
-        </p>
-      )}
-
-      {scanLoading ? (
-        <div className="loading">正在扫描目录...</div>
-      ) : folders.length === 0 && scannedRoot && !scanError ? (
-        <div className="empty-state">
-          <h2>暂无项目文件夹</h2>
-          <p>该目录下没有子文件夹，请检查路径是否正确</p>
-        </div>
-      ) : folders.length > 0 ? (
-        <div className="file-tree">
-          {folders.map((folder) => (
-            <FolderTreeNode
-              key={folder.path}
-              node={folder}
-              permissionId={permissionId}
-              depth={0}
+      {showNewForm && (
+        <div className="dashboard-modal-overlay" onClick={() => setShowNewForm(false)}>
+          <div className="dashboard-modal" onClick={(e) => e.stopPropagation()}>
+            <NewProjectForm
+              defaultPath={defaultPath}
+              initialName={formInitial.name}
+              onCreated={handleProjectCreated}
+              onCancel={() => setShowNewForm(false)}
             />
-          ))}
+          </div>
+        </div>
+      )}
+
+      {selectedProject && (
+        <div className="dashboard-detail-panel">
+          <ProjectDetail
+            project={selectedProject}
+            onClose={() => setSelectedProject(null)}
+            onUpdate={handleProjectUpdate}
+            onDelete={handleProjectDelete}
+          />
+        </div>
+      )}
+
+      {totalProjects === 0 ? (
+        <div className="empty-state">
+          <h2>暂无项目</h2>
+          <p>点击「新建项目」开始管理您的标识设计项目</p>
+          {defaultPath && (
+            <p className="form-hint">默认项目目录：{defaultPath}</p>
+          )}
         </div>
       ) : (
-        !scanError && (
-          <div className="empty-state">
-            <h2>开始浏览项目文件</h2>
-            <p>输入目录路径后点击「扫描目录」，将显示第一层项目文件夹</p>
-          </div>
-        )
+        GROUP_ORDER.map((groupName) => {
+          const projects = grouped[groupName] || []
+          if (!projects.length) return null
+          return (
+            <section key={groupName} className="project-group">
+              <h3 className="project-group-title">
+                {GROUP_ICONS[groupName]} {groupName}
+                <span className="project-group-count">{projects.length}</span>
+              </h3>
+              <div className="project-group-list">
+                {projects.map((project) => (
+                  <ProjectCard
+                    key={project.id}
+                    project={project}
+                    onClick={setSelectedProject}
+                    onDropFiles={handleDropFiles}
+                  />
+                ))}
+              </div>
+            </section>
+          )
+        })
       )}
     </div>
   )

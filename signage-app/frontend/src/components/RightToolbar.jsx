@@ -27,18 +27,7 @@ function RightToolbar({ activeTab, viewMode, onSelect, onSlidePanel }) {
   }
 
   return (
-    <aside
-      aria-label="工具"
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '12px',
-        alignItems: 'center',
-        width: '100%',
-        overflow: 'hidden',
-        flexShrink: 0,
-      }}
-    >
+    <aside className="right-toolbar" aria-label="工具">
       {TOOLBAR_ITEMS.map((item) => {
         const isChat = item.id === 'chat'
         const isActive = isChat
@@ -49,26 +38,14 @@ function RightToolbar({ activeTab, viewMode, onSelect, onSlidePanel }) {
           <button
             key={item.id}
             type="button"
+            className={`right-toolbar-btn ${isActive ? 'active' : ''}`}
             title={isActive && item.canSlide ? `${item.title}（再次点击打开侧滑）` : item.title}
             aria-label={item.title}
             aria-pressed={isActive}
             onClick={() => handleClick(item)}
-            style={{
-              width: '36px',
-              height: '36px',
-              borderRadius: '8px',
-              border: 'none',
-              background: isActive ? '#3b82f6' : 'transparent',
-              color: '#fff',
-              fontSize: '18px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,
-            }}
           >
-            {item.icon}
+            <span className="right-toolbar-icon">{item.icon}</span>
+            <span className="right-toolbar-label">{item.label}</span>
           </button>
         )
       })}

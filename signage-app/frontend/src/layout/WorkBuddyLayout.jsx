@@ -24,6 +24,7 @@ function WorkBuddyLayout({
   onPanelOpen,
 }) {
   const left = useColumnResize('layout-left-width', 260, 200, 400)
+  const right = useColumnResize('layout-right-width', 180, 150, 300)
 
   const [activePanel, setActivePanel] = useState(null)
 
@@ -58,43 +59,11 @@ function WorkBuddyLayout({
             {activePanel && renderSlidePanel ? renderSlidePanel(activePanel) : null}
           </RightPanel>
         </div>
-      </div>
 
-      <div className="workbuddy-fixed-toolbar">
-        {renderRightToolbar ? (
-          renderRightToolbar(handleSlideSelect)
-        ) : (
-          <>
-            {[
-              { id: 'chat', icon: '💬' },
-              { id: 'dashboard', icon: '📊' },
-              { id: 'matching', icon: '🔍' },
-              { id: 'compare', icon: '📋' },
-              { id: 'merge', icon: '🔗' },
-              { id: 'settings', icon: '⚙️' },
-              { id: 'cad', icon: '📐' },
-            ].map(({ id, icon }) => (
-              <button
-                key={id}
-                type="button"
-                onClick={() => handleSlideSelect(id)}
-                style={{
-                  width: '36px',
-                  height: '36px',
-                  borderRadius: '8px',
-                  border: 'none',
-                  background: 'transparent',
-                  color: '#fff',
-                  fontSize: '18px',
-                  cursor: 'pointer',
-                  flexShrink: 0,
-                }}
-              >
-                {icon}
-              </button>
-            ))}
-          </>
-        )}
+        <ResizeHandle onMouseDown={right.startDragReverse} />
+        <div className="workbuddy-col-right" style={{ width: right.width, flexShrink: 0 }}>
+          {renderRightToolbar ? renderRightToolbar(handleSlideSelect) : null}
+        </div>
       </div>
     </div>
   )

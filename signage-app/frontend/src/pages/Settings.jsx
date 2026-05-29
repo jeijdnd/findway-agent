@@ -48,6 +48,10 @@ function Settings() {
   const [editingApiId, setEditingApiId] = useState(null)
   const [apiForm, setApiForm] = useState(EMPTY_API_FORM)
 
+  const [projectPath, setProjectPath] = useState('')
+  const [projectPathSaving, setProjectPathSaving] = useState(false)
+  const [projectPathMessage, setProjectPathMessage] = useState('')
+
   const showLlmMessage = (msg) => {
     setLlmMessage(msg)
     setTimeout(() => setLlmMessage(''), 3000)
@@ -110,7 +114,38 @@ function Settings() {
   useEffect(() => {
     fetchConfig()
     fetchLlmApis()
+    fetch('/api/projects/config')
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (data?.default_project_path) setProjectPath(data.default_project_path)
+      })
+      .catch(() => {})
   }, [fetchLlmApis])
+
+  const saveProjectPath = async () => {
+    if (!projectPath.trim()) return
+    try {
+      setProjectPathSaving(true)
+      setProjectPathMessage('')
+      const res = await fetch('/api/projects/config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ default_project_path: projectPath.trim() }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.detail || `HTTP ${res.status}`)
+      }
+      const data = await res.json()
+      setProjectPath(data.default_project_path)
+      setProjectPathMessage('项目路径已保存')
+      setTimeout(() => setProjectPathMessage(''), 3000)
+    } catch (err) {
+      setProjectPathMessage('保存失败: ' + err.message)
+    } finally {
+      setProjectPathSaving(false)
+    }
+  }
 
   const saveConfig = async (updateData) => {
     try {
@@ -504,6 +539,55 @@ function Settings() {
             重置默认
           </button>
         </div>
+      </div>
+
+      {/* 项目路径配置 */}
+      <div
+        style={{
+          background: 'white',
+          padding: '16px',
+          borderRadius: '8px',
+          marginBottom: '16px',
+          border: '1px solid var(--border)',
+        }}
+      >
+        <h3 style={{ fontSize: '15px', marginBottom: '12px' }}>项目默认路径</h3>
+        <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '12px' }}>
+          新建项目时的默认根目录，首次设置后会自动记住
+        </p>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <input
+            type="text"
+            value={projectPath}
+            onChange={(e) => setProjectPath(e.target.value)}
+            placeholder="例如：E:\MingRui\__项目文件"
+            style={{
+              flex: 1,
+              padding: '8px 12px',
+              border: '1px solid var(--border)',
+              borderRadius: '6px',
+              fontSize: '14px',
+            }}
+          />
+          <button
+            className="btn-primary"
+            onClick={saveProjectPath}
+            disabled={projectPathSaving || !projectPath.trim()}
+          >
+            {projectPathSaving ? '保存中…' : '保存'}
+          </button>
+        </div>
+        {projectPathMessage && (
+          <p
+            style={{
+              fontSize: '13px',
+              marginTop: '8px',
+              color: projectPathMessage.includes('失败') ? '#dc2626' : '#16a34a',
+            }}
+          >
+            {projectPathMessage}
+          </p>
+        )}
       </div>
 
       {/* 模块开关 */}
