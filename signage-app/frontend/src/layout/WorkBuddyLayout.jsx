@@ -58,23 +58,58 @@ function WorkBuddyLayout({
             {activePanel && renderSlidePanel ? renderSlidePanel(activePanel) : null}
           </RightPanel>
         </div>
+      </div>
 
-        <div
-          className="workbuddy-col-right"
+      {/* 固定定位的工具条 — 硬编码验证容器可见性 */}
+      <div
+        style={{
+          position: 'fixed',
+          top: 0,
+          right: 0,
+          width: '50px',
+          height: '100vh',
+          background: '#1e293b',
+          zIndex: 100,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          padding: '60px 0 8px',
+          gap: '8px',
+        }}
+      >
+        {/* 硬编码按钮，不依赖任何 props */}
+        <button
+          type="button"
           style={{
-            width: '50px',
-            minWidth: '50px',
+            width: '36px',
+            height: '36px',
+            borderRadius: '8px',
+            background: '#3b82f6',
+            color: '#fff',
+            fontSize: '20px',
+            border: 'none',
+            cursor: 'pointer',
             flexShrink: 0,
-            background: '#1e293b',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            padding: '8px 0',
-            gap: '8px',
           }}
         >
-          {renderRightToolbar ? renderRightToolbar(handleSlideSelect) : null}
+          💬
+        </button>
+
+        {/* 调试：renderRightToolbar 是否传入 */}
+        <div
+          style={{
+            background: '#fbbf24',
+            padding: '2px 4px',
+            fontSize: '10px',
+            color: '#000',
+            textAlign: 'center',
+            flexShrink: 0,
+          }}
+        >
+          {renderRightToolbar ? 'HAS FUNC' : 'NO FUNC'}
         </div>
+
+        {renderRightToolbar ? renderRightToolbar(handleSlideSelect) : null}
       </div>
     </div>
   )
