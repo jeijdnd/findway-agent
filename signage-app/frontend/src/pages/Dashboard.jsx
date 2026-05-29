@@ -8,7 +8,7 @@ import {
   updateProjectStage,
   deleteProjectById,
   importScannedFolders,
-  fetchProjectConfig,
+  fetchDefaultProjectPath,
   DEFAULT_PROJECT_ROOT,
 } from '../api/dashboardCommands'
 
@@ -586,7 +586,7 @@ function Dashboard({ commandTrigger }) {
       setError(null)
       const [projRes, scanRoot] = await Promise.all([
         fetch('/api/projects'),
-        fetchProjectConfig(),
+        fetchDefaultProjectPath(),
       ])
       setDefaultPath(scanRoot)
       if (!projRes.ok) throw new Error(`加载项目失败: HTTP ${projRes.status}`)

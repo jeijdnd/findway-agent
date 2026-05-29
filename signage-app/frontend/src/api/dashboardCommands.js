@@ -6,6 +6,9 @@
 /** 与后端 app_data.DEFAULT_PROJECT_ROOT 保持一致 */
 export const DEFAULT_PROJECT_ROOT = 'E:\\MingRui\\__项目文件'
 
+/** 默认项目根目录 API（勿使用已废弃的 /api/projects/config） */
+export const DEFAULT_PROJECT_PATH_API = '/api/settings/default-project-path'
+
 export const DashboardCommandType = {
   NEW_PROJECT: 'new-project',
   FILTER: 'dashboard-filter',
@@ -57,15 +60,32 @@ export function findProjectById(projects, id) {
   return projects.find((p) => p.id === id)
 }
 
-export async function fetchProjectConfig() {
+export async function fetchDefaultProjectPath() {
   try {
-    const res = await fetch('/api/settings/default-project-path')
+    const res = await fetch(DEFAULT_PROJECT_PATH_API)
     if (!res.ok) return DEFAULT_PROJECT_ROOT
     const cfg = await res.json()
     return cfg.default_project_path || DEFAULT_PROJECT_ROOT
   } catch {
     return DEFAULT_PROJECT_ROOT
   }
+}
+
+/** @deprecated 使用 fetchDefaultProjectPath */
+export const fetchProjectConfig = fetchDefaultProjectPath
+
+export async function saveDefaultProjectPath(path) {
+  const res = await fetch(DEFAULT_PROJECT_PATH_API, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ default_project_path: path.trim() }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(err.message || err.detail || `HTTP ${res.status}`)
+  }
+  const data = await res.json()
+  return data.default_project_path
 }
 
 export async function fetchAllProjects() {

@@ -3,6 +3,7 @@ import SettingsLogsPanel from '../components/SettingsLogsPanel'
 import SettingsSkillsPanel from '../components/SettingsSkillsPanel'
 import SettingsPermissionsPanel from '../components/SettingsPermissionsPanel'
 import SettingsSafetyPanel from '../components/SettingsSafetyPanel'
+import { fetchDefaultProjectPath, saveDefaultProjectPath } from '../api/dashboardCommands'
 
 const SETTINGS_SECTIONS = [
   { id: 'general', label: '常规配置' },
@@ -114,10 +115,9 @@ function Settings() {
   useEffect(() => {
     fetchConfig()
     fetchLlmApis()
-    fetch('/api/settings/default-project-path')
-      .then((r) => r.ok ? r.json() : null)
-      .then((data) => {
-        if (data?.default_project_path) setProjectPath(data.default_project_path)
+    fetchDefaultProjectPath()
+      .then((path) => {
+        if (path) setProjectPath(path)
       })
       .catch(() => {})
   }, [fetchLlmApis])
@@ -127,17 +127,8 @@ function Settings() {
     try {
       setProjectPathSaving(true)
       setProjectPathMessage('')
-      const res = await fetch('/api/settings/default-project-path', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ default_project_path: projectPath.trim() }),
-      })
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error(err.message || err.detail || `HTTP ${res.status}`)
-      }
-      const data = await res.json()
-      setProjectPath(data.default_project_path)
+      const saved = await saveDefaultProjectPath(projectPath)
+      setProjectPath(saved)
       setProjectPathMessage('项目路径已保存')
       setTimeout(() => setProjectPathMessage(''), 3000)
     } catch (err) {
