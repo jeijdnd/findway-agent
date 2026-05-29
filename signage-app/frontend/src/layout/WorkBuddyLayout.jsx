@@ -60,7 +60,6 @@ function WorkBuddyLayout({
         </div>
       </div>
 
-      {/* 固定定位的工具条 — 硬编码验证容器可见性 */}
       <div
         style={{
           position: 'fixed',
@@ -73,43 +72,45 @@ function WorkBuddyLayout({
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          padding: '60px 0 8px',
+          padding: '40px 0 8px',
           gap: '8px',
+          overflow: 'hidden',
         }}
       >
-        {/* 硬编码按钮，不依赖任何 props */}
-        <button
-          type="button"
-          style={{
-            width: '36px',
-            height: '36px',
-            borderRadius: '8px',
-            background: '#3b82f6',
-            color: '#fff',
-            fontSize: '20px',
-            border: 'none',
-            cursor: 'pointer',
-            flexShrink: 0,
-          }}
-        >
-          💬
-        </button>
-
-        {/* 调试：renderRightToolbar 是否传入 */}
-        <div
-          style={{
-            background: '#fbbf24',
-            padding: '2px 4px',
-            fontSize: '10px',
-            color: '#000',
-            textAlign: 'center',
-            flexShrink: 0,
-          }}
-        >
-          {renderRightToolbar ? 'HAS FUNC' : 'NO FUNC'}
-        </div>
-
-        {renderRightToolbar ? renderRightToolbar(handleSlideSelect) : null}
+        {renderRightToolbar ? (
+          renderRightToolbar(handleSlideSelect)
+        ) : (
+          <>
+            {[
+              { id: 'chat', icon: '💬' },
+              { id: 'dashboard', icon: '📊' },
+              { id: 'matching', icon: '🔍' },
+              { id: 'compare', icon: '📋' },
+              { id: 'merge', icon: '🔗' },
+              { id: 'settings', icon: '⚙️' },
+              { id: 'cad', icon: '📐' },
+            ].map(({ id, icon }) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => handleSlideSelect(id)}
+                style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  background: 'transparent',
+                  color: '#fff',
+                  fontSize: '18px',
+                  cursor: 'pointer',
+                  flexShrink: 0,
+                }}
+              >
+                {icon}
+              </button>
+            ))}
+          </>
+        )}
       </div>
     </div>
   )
