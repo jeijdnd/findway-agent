@@ -1,23 +1,25 @@
 .app-layout {
   display: flex;
-  height: 100vh;
-  width: 100vw;
+  height: 100%;
+  width: 100%;
 }
 
 /* WorkBuddy 三栏可缩放布局：左栏 | 中间聊天/工具 | 右栏 */
 .workbuddy-layout {
   display: flex;
   flex-direction: column;
-  height: 100vh;
-  width: 100vw;
-  overflow: visible;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
 }
 
 .workbuddy-columns {
   display: flex;
   flex: 1;
   min-height: 0;
-  overflow: visible;
+  overflow: hidden;
+  padding-right: 50px;
+  box-sizing: border-box;
 }
 
 .workbuddy-col-left,
@@ -215,7 +217,42 @@
   flex-shrink: 0;
 }
 
-/* 右栏工具条 */
+/* 固定右侧工具条（WorkBuddyLayout position:fixed） */
+.workbuddy-fixed-toolbar {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 50px;
+  height: 100%;
+  background: #1e293b;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 40px 0 8px;
+  gap: 8px;
+  overflow: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.workbuddy-fixed-toolbar::-webkit-scrollbar {
+  display: none;
+}
+
+.workbuddy-fixed-toolbar > aside {
+  overflow: hidden;
+  flex: 1;
+  min-height: 0;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.workbuddy-fixed-toolbar > aside::-webkit-scrollbar {
+  display: none;
+}
+
+/* 右栏工具条（旧 RightSidebar 布局） */
 .right-toolbar {
   display: flex;
   flex-direction: column;
@@ -227,7 +264,7 @@
   border-left: 3px solid #3b82f6 !important;
   min-width: 180px !important;
   width: 100% !important;
-  overflow-y: auto;
+  overflow: hidden;
 }
 
 .right-toolbar-btn {

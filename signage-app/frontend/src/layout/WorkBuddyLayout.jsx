@@ -60,23 +60,7 @@ function WorkBuddyLayout({
         </div>
       </div>
 
-      <div
-        style={{
-          position: 'fixed',
-          top: 0,
-          right: 0,
-          width: '50px',
-          height: '100vh',
-          background: '#1e293b',
-          zIndex: 100,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          padding: '40px 0 8px',
-          gap: '8px',
-          overflow: 'hidden',
-        }}
-      >
+      <div className="workbuddy-fixed-toolbar">
         {renderRightToolbar ? (
           renderRightToolbar(handleSlideSelect)
         ) : (

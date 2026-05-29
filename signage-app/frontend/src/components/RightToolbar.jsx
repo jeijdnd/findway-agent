@@ -35,6 +35,8 @@ function RightToolbar({ activeTab, viewMode, onSelect, onSlidePanel }) {
         gap: '12px',
         alignItems: 'center',
         width: '100%',
+        overflow: 'hidden',
+        flexShrink: 0,
       }}
     >
       {TOOLBAR_ITEMS.map((item) => {
