@@ -91,6 +91,18 @@ class ProjectConfigUpdate(BaseModel):
     default_project_path: str
 
 
+class ProjectResponse(BaseModel):
+    """扫描注册等旧接口使用的项目响应模型"""
+    id: str
+    name: str
+    project_type: str = ""
+    buildings: List[str] = []
+    notes: str = ""
+    stage: str = ""
+    created_at: str = ""
+    updated_at: str = ""
+
+
 def _stage_group(stage: str) -> str:
     if not stage:
         return "进行中"
