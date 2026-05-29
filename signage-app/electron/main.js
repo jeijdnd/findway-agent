@@ -103,8 +103,10 @@ function checkBackendHealth() {
   });
 }
 
-/** 检查运行中的后端是否包含文件浏览器 API（scan-folder） */
-function checkBackendHasFileBrowser() {
+/** 检查运行中的后端是否包含必需 API（避免旧进程导致 404） */
+const REQUIRED_BACKEND_FEATURES = ['scan-folder', 'file-browser', 'project-path-config'];
+
+function checkBackendHasRequiredFeatures() {
   return new Promise((resolve) => {
     const req = http.get(BACKEND_HEALTH_URL, (res) => {
       let data = '';
@@ -112,7 +114,8 @@ function checkBackendHasFileBrowser() {
       res.on('end', () => {
         try {
           const json = JSON.parse(data);
-          resolve(Array.isArray(json.features) && json.features.includes('scan-folder'));
+          const features = Array.isArray(json.features) ? json.features : [];
+          resolve(REQUIRED_BACKEND_FEATURES.every((f) => features.includes(f)));
         } catch {
           resolve(false);
         }
@@ -124,6 +127,11 @@ function checkBackendHasFileBrowser() {
       resolve(false);
     });
   });
+}
+
+/** @deprecated 保留兼容；请使用 checkBackendHasRequiredFeatures */
+function checkBackendHasFileBrowser() {
+  return checkBackendHasRequiredFeatures();
 }
 
 /** 终止占用指定端口的进程（开发模式清理旧后端） */
@@ -226,10 +234,10 @@ function startBackendProcess() {
 
 async function ensureBackendRunning() {
   const healthy = await checkBackendHealth();
-  const hasFileBrowser = healthy && await checkBackendHasFileBrowser();
+  const hasRequiredFeatures = healthy && await checkBackendHasRequiredFeatures();
 
-  // 旧后端进程缺少新 API 时（405 根因），或开发模式需热重载，先清理再启动
-  if (healthy && (isDev || !hasFileBrowser)) {
+  // 旧后端进程缺少新 API 时（404 根因），或开发模式需热重载，先清理再启动
+  if (healthy && (isDev || !hasRequiredFeatures)) {
     console.log(t('backend_restarting_stale', { url: BACKEND_URL }) || `Restarting stale backend at ${BACKEND_URL}`);
     killProcessOnPort(BACKEND_PORT);
     await new Promise((r) => setTimeout(r, 800));

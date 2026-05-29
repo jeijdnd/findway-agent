@@ -10,6 +10,11 @@ import os
 import copy
 
 from backend.i18n import _
+from backend.services.app_data import (
+    get_default_project_path,
+    load_user_preferences,
+    save_user_preferences,
+)
 
 router = APIRouter()
 
@@ -93,6 +98,11 @@ class SettingsUpdate(BaseModel):
     list_template: Optional[ListTemplate] = None
     llm: Optional[LLMConfig] = None
 
+
+class DefaultProjectPathUpdate(BaseModel):
+    """默认项目根目录"""
+    default_project_path: str
+
 def load_config() -> dict:
     """加载配置文件"""
     try:
@@ -120,6 +130,28 @@ def _deep_merge(base: dict, override: dict):
             _deep_merge(base[key], value)
         else:
             base[key] = value
+
+@router.get("/api/settings/default-project-path")
+async def get_default_project_path_setting():
+    """获取默认项目根目录（独立路由，避免与 /api/projects/{project_id} 冲突）"""
+    path = get_default_project_path()
+    print(f"[settings] GET default-project-path -> {path}")
+    return {"default_project_path": path}
+
+
+@router.put("/api/settings/default-project-path")
+async def update_default_project_path_setting(update: DefaultProjectPathUpdate):
+    """保存默认项目根目录"""
+    path = update.default_project_path.strip()
+    if not path:
+        raise HTTPException(status_code=400, detail="项目路径不能为空")
+    prefs = load_user_preferences()
+    prefs["default_project_path"] = os.path.normpath(path)
+    save_user_preferences(prefs)
+    saved = prefs["default_project_path"]
+    print(f"[settings] PUT default-project-path -> {saved}")
+    return {"default_project_path": saved}
+
 
 @router.get("/api/settings")
 async def get_settings():

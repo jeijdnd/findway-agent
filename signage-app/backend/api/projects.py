@@ -12,8 +12,6 @@ from datetime import datetime
 
 from backend.services.app_data import (
     get_projects_index_path,
-    load_user_preferences,
-    save_user_preferences,
     get_default_project_path,
     DEFAULT_PROJECT_ROOT,
 )
@@ -85,10 +83,6 @@ class ImportScanFolder(BaseModel):
 
 class ImportScanRequest(BaseModel):
     folders: List[ImportScanFolder]
-
-
-class ProjectConfigUpdate(BaseModel):
-    default_project_path: str
 
 
 class ProjectResponse(BaseModel):
@@ -175,24 +169,6 @@ async def get_stages():
             for g in STAGE_GROUPS
         ],
     }
-
-
-@router.get("/api/projects/config")
-async def get_project_config():
-    """获取项目默认路径配置"""
-    return {"default_project_path": get_default_project_path()}
-
-
-@router.put("/api/projects/config")
-async def update_project_config(update: ProjectConfigUpdate):
-    """更新项目默认路径"""
-    path = update.default_project_path.strip()
-    if not path:
-        raise HTTPException(status_code=400, detail="项目路径不能为空")
-    prefs = load_user_preferences()
-    prefs["default_project_path"] = os.path.normpath(path)
-    save_user_preferences(prefs)
-    return {"default_project_path": prefs["default_project_path"]}
 
 
 @router.get("/api/projects")

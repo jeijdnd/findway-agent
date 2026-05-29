@@ -59,7 +59,7 @@ export function findProjectById(projects, id) {
 
 export async function fetchProjectConfig() {
   try {
-    const res = await fetch('/api/projects/config')
+    const res = await fetch('/api/settings/default-project-path')
     if (!res.ok) return DEFAULT_PROJECT_ROOT
     const cfg = await res.json()
     return cfg.default_project_path || DEFAULT_PROJECT_ROOT

@@ -72,7 +72,7 @@ def _request_endpoint(request: Request) -> str:
 
 @app.on_event("startup")
 async def on_startup():
-    """启动时确保用户数据目录存在"""
+    """启动时确保用户数据目录存在，并打印关键路由"""
     from backend.services.app_data import get_app_data_dir
     import os as _os
 
@@ -83,6 +83,29 @@ async def on_startup():
     print(_("error_log_path", path=_os.path.join(data_dir, "error_log.json")))
     print(_("project_memory_path", path=_os.path.join(data_dir, "projects")))
 
+    _log_key_routes()
+
+
+def _log_key_routes():
+    """启动时打印关键 API 路由，便于排查 404"""
+    groups = {
+        "projects": [],
+        "settings": [],
+    }
+    for route in app.routes:
+        if not hasattr(route, "methods") or not hasattr(route, "path"):
+            continue
+        path = route.path
+        methods = ",".join(sorted(route.methods))
+        if "/api/projects" in path:
+            groups["projects"].append(f"  {methods:12} {path}")
+        elif "/api/settings" in path:
+            groups["settings"].append(f"  {methods:12} {path}")
+    for name, lines in groups.items():
+        print(f"[routes] {name} ({len(lines)}):")
+        for line in sorted(lines):
+            print(line)
+
 
 @app.get("/api/health")
 async def health_check():
@@ -91,7 +114,7 @@ async def health_check():
         "status": "ok",
         "version": "2.0.1",
         "mode": "production" if is_production else "development",
-        "features": ["scan-folder", "file-browser"],
+        "features": ["scan-folder", "file-browser", "project-path-config"],
     }
 
 

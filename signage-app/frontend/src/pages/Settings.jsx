@@ -114,7 +114,7 @@ function Settings() {
   useEffect(() => {
     fetchConfig()
     fetchLlmApis()
-    fetch('/api/projects/config')
+    fetch('/api/settings/default-project-path')
       .then((r) => r.ok ? r.json() : null)
       .then((data) => {
         if (data?.default_project_path) setProjectPath(data.default_project_path)
@@ -127,14 +127,14 @@ function Settings() {
     try {
       setProjectPathSaving(true)
       setProjectPathMessage('')
-      const res = await fetch('/api/projects/config', {
+      const res = await fetch('/api/settings/default-project-path', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ default_project_path: projectPath.trim() }),
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
-        throw new Error(err.detail || `HTTP ${res.status}`)
+        throw new Error(err.message || err.detail || `HTTP ${res.status}`)
       }
       const data = await res.json()
       setProjectPath(data.default_project_path)
