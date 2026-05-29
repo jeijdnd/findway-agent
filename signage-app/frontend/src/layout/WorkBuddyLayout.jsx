@@ -24,7 +24,6 @@ function WorkBuddyLayout({
   onPanelOpen,
 }) {
   const left = useColumnResize('layout-left-width', 260, 200, 400)
-  const right = useColumnResize('layout-right-width', 180, 150, 300)
 
   const [activePanel, setActivePanel] = useState(null)
 
@@ -47,28 +46,6 @@ function WorkBuddyLayout({
 
   return (
     <div className="workbuddy-layout">
-      {/* === 终极调试：如果看不到这个红色块，说明 React 根本没渲染 === */}
-      <div
-        style={{
-          position: 'fixed',
-          top: '50%',
-          right: 0,
-          width: '200px',
-          height: '200px',
-          background: 'red',
-          zIndex: 99999,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: 'white',
-          fontSize: '20px',
-          fontWeight: 'bold',
-        }}
-      >
-        DEBUG
-      </div>
-      {/* === 调试结束 === */}
-
       <div className="workbuddy-columns">
         <div className="workbuddy-col-left" style={{ width: left.width, flexShrink: 0 }}>
           {leftSidebar}
@@ -76,65 +53,28 @@ function WorkBuddyLayout({
         <ResizeHandle onMouseDown={left.startDrag} />
 
         <div className="workbuddy-col-center">
-          {/* === 临时：把 RightToolbar 渲染在 center 顶部，绕过右栏布局 === */}
-          <div
-            style={{
-              display: 'flex',
-              gap: '4px',
-              padding: '8px',
-              background: '#1e293b',
-              borderBottom: '2px solid #3b82f6',
-              flexShrink: 0,
-              zIndex: 10,
-              overflowX: 'auto',
-            }}
-          >
-            {renderRightToolbar ? renderRightToolbar(handleSlideSelect) : (
-              <span style={{ color: 'red' }}>NO RENDER FUNC</span>
-            )}
-          </div>
-
           {viewMode === 'chat' ? centerChat : mainContent}
           <RightPanel open={!!activePanel} panelId={activePanel} onClose={handleClose}>
             {activePanel && renderSlidePanel ? renderSlidePanel(activePanel) : null}
           </RightPanel>
         </div>
 
-        {/* 暂时注释右栏，排查是否为右栏 CSS 问题 */}
-        {/* <ResizeHandle onMouseDown={right.startDragReverse} />
-
         <div
           className="workbuddy-col-right"
           style={{
-            width: right.width,
+            width: '50px',
+            minWidth: '50px',
             flexShrink: 0,
-            minWidth: '180px',
-            background: '#0f172a',
-            border: '2px solid blue',
-            color: '#fff',
+            background: '#1e293b',
             display: 'flex',
             flexDirection: 'column',
+            alignItems: 'center',
+            padding: '8px 0',
+            gap: '8px',
           }}
         >
-          <div style={{ background: '#fbbf24', padding: '4px', fontSize: '10px', flexShrink: 0 }}>
-            COL-RIGHT: {right.width}px | hasFunc: {String(!!renderRightToolbar)}
-          </div>
-          <div style={{ background: '#3b82f6', color: '#fff', padding: '10px', flexShrink: 0 }}>
-            HARD CODED BUTTON
-          </div>
-          {renderRightToolbar ? (
-            <>
-              <div style={{ background: '#10b981', padding: '4px', flexShrink: 0 }}>
-                CALLING renderRightToolbar...
-              </div>
-              {renderRightToolbar(handleSlideSelect)}
-            </>
-          ) : (
-            <div style={{ background: '#ef4444', color: '#fff', padding: '10px', flexShrink: 0 }}>
-              NO RENDER FUNC!
-            </div>
-          )}
-        </div> */}
+          {renderRightToolbar ? renderRightToolbar(handleSlideSelect) : null}
+        </div>
       </div>
     </div>
   )
