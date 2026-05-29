@@ -7,7 +7,8 @@ const path = require('path');
 
 const root = path.join(__dirname, '..');
 const electron = require('electron');
-const detached = process.env.FINDWAY_DETACHED === '1';
+const foreground = process.argv.includes('--foreground');
+const detached = !foreground && process.env.FINDWAY_DETACHED === '1';
 
 const child = spawn(electron, ['.'], {
   cwd: root,

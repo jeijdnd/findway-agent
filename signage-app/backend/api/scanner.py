@@ -3,6 +3,7 @@
 扫描本地目录发现项目，并注册为仪表盘项目卡片
 """
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 import json
@@ -441,6 +442,24 @@ async def browse_folder(body: BrowseRequest):
     if result.get("error"):
         raise HTTPException(status_code=400, detail=result["error"])
     return result
+
+
+@router.get("/api/scanner/download")
+async def download_file(path: str, permission_id: Optional[str] = None):
+    """下载指定文件（需读取授权）"""
+    file_path = os.path.normpath(path.strip())
+    if not file_path or not os.path.isfile(file_path):
+        raise HTTPException(status_code=400, detail="文件不存在或不可访问")
+    parent = os.path.dirname(file_path)
+    if not permission_id:
+        raise HTTPException(status_code=403, detail="未获得用户授权，操作已取消。请先确认权限。")
+    if not _check_permission(permission_id, parent, "read") and not _check_permission(permission_id, parent, "scan"):
+        raise HTTPException(status_code=403, detail="未获得用户授权或授权已过期，操作已取消。")
+    return FileResponse(
+        path=file_path,
+        filename=os.path.basename(file_path),
+        media_type="application/octet-stream",
+    )
 
 
 @router.post("/api/scanner/scan")

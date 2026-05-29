@@ -4,6 +4,7 @@ import SettingsSkillsPanel from '../components/SettingsSkillsPanel'
 import SettingsPermissionsPanel from '../components/SettingsPermissionsPanel'
 import SettingsSafetyPanel from '../components/SettingsSafetyPanel'
 import { fetchDefaultProjectPath, saveDefaultProjectPath } from '../api/dashboardCommands'
+import { fetchLocalServerConfig, saveLocalServerConfig } from '../api/localServer'
 
 const SETTINGS_SECTIONS = [
   { id: 'general', label: '常规配置' },
@@ -52,6 +53,11 @@ function Settings() {
   const [projectPath, setProjectPath] = useState('')
   const [projectPathSaving, setProjectPathSaving] = useState(false)
   const [projectPathMessage, setProjectPathMessage] = useState('')
+
+  const [localServerEnabled, setLocalServerEnabled] = useState(false)
+  const [localServerPath, setLocalServerPath] = useState('')
+  const [localServerSaving, setLocalServerSaving] = useState(false)
+  const [localServerMessage, setLocalServerMessage] = useState('')
 
   const showLlmMessage = (msg) => {
     setLlmMessage(msg)
@@ -120,6 +126,12 @@ function Settings() {
         if (path) setProjectPath(path)
       })
       .catch(() => {})
+    fetchLocalServerConfig()
+      .then((data) => {
+        setLocalServerEnabled(!!data.enabled)
+        setLocalServerPath(data.path || '')
+      })
+      .catch(() => {})
   }, [fetchLlmApis])
 
   const saveProjectPath = async () => {
@@ -135,6 +147,25 @@ function Settings() {
       setProjectPathMessage('保存失败: ' + err.message)
     } finally {
       setProjectPathSaving(false)
+    }
+  }
+
+  const saveLocalServer = async () => {
+    try {
+      setLocalServerSaving(true)
+      setLocalServerMessage('')
+      const saved = await saveLocalServerConfig({
+        enabled: localServerEnabled,
+        path: localServerPath,
+      })
+      setLocalServerEnabled(!!saved.enabled)
+      setLocalServerPath(saved.path || '')
+      setLocalServerMessage('本地服务器配置已保存')
+      setTimeout(() => setLocalServerMessage(''), 3000)
+    } catch (err) {
+      setLocalServerMessage('保存失败: ' + err.message)
+    } finally {
+      setLocalServerSaving(false)
     }
   }
 
@@ -577,6 +608,75 @@ function Settings() {
             }}
           >
             {projectPathMessage}
+          </p>
+        )}
+      </div>
+
+      {/* 本地服务器 */}
+      <div
+        style={{
+          background: 'white',
+          padding: '16px',
+          borderRadius: '8px',
+          marginBottom: '16px',
+          border: '1px solid var(--border)',
+        }}
+      >
+        <h3 style={{ fontSize: '15px', marginBottom: '12px' }}>本地服务器</h3>
+        <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '12px' }}>
+          浏览局域网共享文件夹（UNC 路径），可在右侧工具条「服务器」中打开
+        </p>
+        <label
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            marginBottom: '12px',
+            cursor: 'pointer',
+            fontSize: '14px',
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={localServerEnabled}
+            onChange={(e) => setLocalServerEnabled(e.target.checked)}
+          />
+          启用本地服务器
+        </label>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <input
+            type="text"
+            value={localServerPath}
+            onChange={(e) => setLocalServerPath(e.target.value)}
+            placeholder="例如：\\192.168.74.246\共享名"
+            disabled={!localServerEnabled}
+            style={{
+              flex: 1,
+              padding: '8px 12px',
+              border: '1px solid var(--border)',
+              borderRadius: '6px',
+              fontSize: '14px',
+              opacity: localServerEnabled ? 1 : 0.6,
+            }}
+          />
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={saveLocalServer}
+            disabled={localServerSaving}
+          >
+            {localServerSaving ? '保存中…' : '保存'}
+          </button>
+        </div>
+        {localServerMessage && (
+          <p
+            style={{
+              fontSize: '13px',
+              marginTop: '8px',
+              color: localServerMessage.includes('失败') ? '#dc2626' : '#16a34a',
+            }}
+          >
+            {localServerMessage}
           </p>
         )}
       </div>

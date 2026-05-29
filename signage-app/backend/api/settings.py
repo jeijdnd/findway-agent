@@ -103,6 +103,12 @@ class DefaultProjectPathUpdate(BaseModel):
     """默认项目根目录"""
     default_project_path: str
 
+
+class LocalServerUpdate(BaseModel):
+    """局域网本地服务器"""
+    enabled: bool
+    path: str = ""
+
 def load_config() -> dict:
     """加载配置文件"""
     try:
@@ -151,6 +157,40 @@ async def update_default_project_path_setting(update: DefaultProjectPathUpdate):
     saved = prefs["default_project_path"]
     print(f"[settings] PUT default-project-path -> {saved}")
     return {"default_project_path": saved}
+
+
+@router.get("/api/settings/local-server")
+async def get_local_server_setting():
+    """获取局域网本地服务器配置"""
+    prefs = load_user_preferences()
+    local_server = prefs.get("local_server") or {}
+    return {
+        "enabled": bool(local_server.get("enabled", False)),
+        "path": local_server.get("path", ""),
+    }
+
+
+@router.put("/api/settings/local-server")
+async def update_local_server_setting(update: LocalServerUpdate):
+    """保存局域网本地服务器配置"""
+    path = update.path.strip()
+    if update.enabled and not path:
+        raise HTTPException(status_code=400, detail="启用本地服务器时必须填写局域网路径")
+    normalized = path.strip()
+    if normalized:
+        if not (normalized.startswith("\\\\") or (len(normalized) > 2 and normalized[1] == ":")):
+            raise HTTPException(status_code=400, detail="路径格式无效，请使用 UNC 路径如 \\\\192.168.74.246\\共享名")
+        if normalized.startswith("\\\\"):
+            normalized = normalized.rstrip("\\")
+        else:
+            normalized = os.path.normpath(normalized)
+    prefs = load_user_preferences()
+    prefs["local_server"] = {
+        "enabled": update.enabled,
+        "path": normalized,
+    }
+    save_user_preferences(prefs)
+    return prefs["local_server"]
 
 
 @router.get("/api/settings")

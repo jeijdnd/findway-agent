@@ -114,7 +114,7 @@ async def health_check():
         "status": "ok",
         "version": "2.0.1",
         "mode": "production" if is_production else "development",
-        "features": ["scan-folder", "file-browser", "project-path-config"],
+        "features": ["scan-folder", "file-browser", "project-path-config", "local-server"],
     }
 
 

@@ -8,7 +8,8 @@ const fs = require('fs');
 
 const frontendDir = path.join(__dirname, '..', 'frontend');
 const viteBin = path.join(frontendDir, 'node_modules', 'vite', 'bin', 'vite.js');
-const detached = process.env.FINDWAY_DETACHED === '1';
+const foreground = process.argv.includes('--foreground');
+const detached = !foreground && process.env.FINDWAY_DETACHED === '1';
 
 if (!fs.existsSync(viteBin)) {
   console.error('Vite not found. Run: cd frontend && npm install');

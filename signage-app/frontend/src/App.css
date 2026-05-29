@@ -1127,6 +1127,114 @@
   z-index: 400;
 }
 
+/* 本地服务器浏览 */
+.server-browser-page {
+  max-width: 100%;
+}
+
+.server-browser-error {
+  margin-bottom: 12px;
+}
+
+.server-files-tree {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  font-size: 13px;
+  background: var(--white);
+}
+
+.server-tree-root-label {
+  padding: 10px 12px;
+  background: #f8fafc;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.server-tree-root-label code {
+  word-break: break-all;
+}
+
+.server-tree-row {
+  padding: 6px 10px;
+  border-bottom: 1px solid #f1f5f9;
+  min-height: 34px;
+}
+
+.server-tree-folder {
+  cursor: pointer;
+  user-select: none;
+  background: #fafbfc;
+}
+
+.server-tree-folder:hover {
+  background: #f1f5f9;
+}
+
+.server-tree-file:hover {
+  background: #f8fafc;
+}
+
+.server-tree-name-col {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding-left: calc(var(--tree-depth, 0) * 18px);
+}
+
+.server-tree-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.server-tree-size {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.server-tree-download-btn {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--white);
+  cursor: pointer;
+  font-size: 14px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.server-tree-file:hover .server-tree-download-btn {
+  opacity: 1;
+}
+
+.server-tree-download-btn:hover {
+  background: #eff6ff;
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.server-tree-loading,
+.server-tree-empty,
+.server-tree-empty-folder {
+  padding: 16px;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.server-tree-empty-folder {
+  text-align: left;
+  padding-left: calc(var(--tree-depth, 0) * 18px + 28px);
+}
+
 .project-detail-actions {
   margin-top: 12px;
   padding-top: 12px;

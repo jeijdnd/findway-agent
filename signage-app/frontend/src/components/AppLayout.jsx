@@ -9,6 +9,7 @@ import Matching from '../pages/Matching'
 import Compare from '../pages/Compare'
 import MergePreview from '../pages/MergePreview'
 import Settings from '../pages/Settings'
+import ServerBrowser from '../pages/ServerBrowser'
 import { chatActionToTrigger } from '../api/dashboardCommands'
 import '../App.css'
 
@@ -382,6 +383,8 @@ function AppLayout() {
             commandTrigger={commandTrigger}
           />
         )
+      case 'server':
+        return <ServerBrowser key={`${keyPrefix}-server-${refreshKey}`} />
       case 'matching':
         return <Matching key={`${keyPrefix}-matching-${refreshKey}`} />
       case 'compare':
@@ -411,6 +414,8 @@ function AppLayout() {
             commandTrigger={commandTrigger}
           />
         )
+      case 'server':
+        return <ServerBrowser key={`slide-server-${refreshKey}`} />
       case 'matching':
         return <Matching key={`slide-matching-${refreshKey}`} />
       case 'compare':
@@ -428,6 +433,7 @@ function AppLayout() {
 
   const tabTitles = {
     dashboard: '项目仪表盘',
+    server: '本地服务器',
     matching: '旧项目匹配',
     compare: '清单对比',
     merge: '合并预览',

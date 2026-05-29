@@ -6,6 +6,7 @@ export const TOOLBAR_WIDTH = 72
 export const TOOLBAR_ITEMS = [
   { id: 'chat', icon: '💬', label: '聊天', title: '返回聊天', canSlide: false },
   { id: 'dashboard', icon: '📊', label: '项目仪表盘', title: '项目仪表盘', canSlide: true },
+  { id: 'server', icon: '🖥️', label: '服务器', title: '本地服务器', canSlide: true },
   { id: 'matching', icon: '🔍', label: '旧项目匹配', title: '旧项目匹配', canSlide: true },
   { id: 'compare', icon: '📋', label: '清单对比', title: '清单对比', canSlide: true },
   { id: 'merge', icon: '🔗', label: '合并预览', title: '合并预览', canSlide: true },
