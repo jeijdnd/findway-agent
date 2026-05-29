@@ -1,0 +1,30 @@
+{
+  "name": "manage_projects",
+  "version": "1.0.0",
+  "description": "管理项目仪表盘：筛选、切换阶段、打开/编辑/删除项目",
+  "icon": "folder",
+  "category": "项目管理",
+  "entry": "main.py",
+  "parameters": {
+    "action": {
+      "type": "string",
+      "description": "操作类型：filter（筛选）、set_stage（改阶段）、open（打开）、edit（编辑）、delete（删除）、list（列表）"
+    },
+    "project_name": {
+      "type": "string",
+      "description": "项目名称（open/edit/delete/set_stage 时使用）"
+    },
+    "stage": {
+      "type": "string",
+      "description": "目标阶段（set_stage 或 filter 时使用）"
+    },
+    "query": {
+      "type": "string",
+      "description": "名称关键词（filter 时使用）"
+    },
+    "year": {
+      "type": "integer",
+      "description": "年份（filter 时使用）"
+    }
+  }
+}

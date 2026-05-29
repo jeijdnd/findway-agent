@@ -620,8 +620,110 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
   gap: 16px;
+}
+
+.dashboard-header-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.dashboard-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 20px;
+  padding: 12px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.dashboard-filter-input {
+  flex: 1;
+  min-width: 160px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.dashboard-filter-select {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 13px;
+  background: var(--white);
+}
+
+.dashboard-filter-clear {
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.dashboard-scan-message {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: -8px 0 16px;
+  padding: 8px 12px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 6px;
+}
+
+.stage-select-inline {
+  font-size: 12px;
+  padding: 2px 4px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--primary);
+  cursor: pointer;
+  max-width: 90px;
+}
+
+.stage-select-inline:hover,
+.stage-select-inline:focus {
+  border-color: var(--border);
+  background: var(--white);
+}
+
+.project-context-menu {
+  position: fixed;
+  z-index: 300;
+  min-width: 140px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  padding: 4px 0;
+}
+
+.project-context-menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 14px;
+  border: none;
+  background: none;
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--text);
+}
+
+.project-context-menu-item:hover {
+  background: #f1f5f9;
+}
+
+.project-context-menu-item.danger {
+  color: #dc2626;
+}
+
+.project-context-menu-item.danger:hover {
+  background: #fef2f2;
 }
 
 .project-group {

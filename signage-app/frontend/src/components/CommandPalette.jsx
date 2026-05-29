@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react'
 
 const COMMANDS = [
-  { id: 'scan', label: '扫描文件', keywords: ['扫描', '文件', '目录', 'scan'] },
+  { id: 'scan', label: '扫描目录', keywords: ['扫描', '目录', 'scan', '文件夹'] },
+  { id: 'filter-projects', label: '筛选项目', keywords: ['筛选', '搜索', '过滤', 'filter'] },
   { id: 'matching', label: '生成清单', keywords: ['生成', '清单', '匹配', 'matching'] },
   { id: 'new-project', label: '新建项目', keywords: ['新建', '项目', '创建', 'project'] },
   { id: 'settings', label: '打开设置', keywords: ['设置', '配置', 'settings'] },

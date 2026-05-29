@@ -77,11 +77,22 @@ class ProjectFilesAdd(BaseModel):
     files: List[ProjectFile]
 
 
+class ImportScanFolder(BaseModel):
+    name: str
+    path: str
+
+
+class ImportScanRequest(BaseModel):
+    folders: List[ImportScanFolder]
+
+
 class ProjectConfigUpdate(BaseModel):
     default_project_path: str
 
 
 def _stage_group(stage: str) -> str:
+    if not stage:
+        return "进行中"
     for group, stages in STAGE_GROUPS.items():
         if stage in stages:
             return group
@@ -246,7 +257,7 @@ async def update_project(project_id: str, update: ProjectUpdate):
     for i, p in enumerate(projects):
         if p["id"] == project_id:
             data = update.dict(exclude_unset=True)
-            if "stage" in data and data["stage"] not in STAGES:
+            if "stage" in data and data["stage"] and data["stage"] not in STAGES:
                 raise HTTPException(status_code=400, detail=f"无效阶段: {data['stage']}")
             if "files" in data:
                 data["files"] = [f if isinstance(f, dict) else f.dict() for f in data["files"]]
@@ -280,6 +291,65 @@ async def add_project_files(project_id: str, body: ProjectFilesAdd):
             save_projects(projects)
             return p
     raise HTTPException(status_code=404, detail="项目不存在")
+
+
+@router.get("/api/projects/search")
+async def search_projects(
+    name: Optional[str] = None,
+    year: Optional[int] = None,
+    stage: Optional[str] = None,
+):
+    """按名称、年份、阶段筛选项目（聊天联动接口）"""
+    projects = load_projects()
+    query = (name or "").strip().lower()
+    filtered = []
+    for p in projects:
+        if query and query not in p.get("name", "").lower():
+            continue
+        if year is not None and p.get("year") != year:
+            continue
+        if stage and p.get("stage") != stage:
+            continue
+        filtered.append(p)
+    return {"projects": filtered, "count": len(filtered)}
+
+
+@router.post("/api/projects/import-scan")
+async def import_from_scan(body: ImportScanRequest):
+    """批量导入扫描到的文件夹为项目，已存在的跳过"""
+    projects = load_projects()
+    existing_names = {p["name"] for p in projects}
+    existing_paths = {os.path.normpath(p.get("path", "")) for p in projects if p.get("path")}
+    added = []
+    skipped = 0
+    now = datetime.now().isoformat()
+
+    for folder in body.folders:
+        name = folder.name.strip()
+        path = os.path.normpath(folder.path.strip())
+        if not name or not path:
+            continue
+        if name in existing_names or path in existing_paths:
+            skipped += 1
+            continue
+        new_project = {
+            "id": str(uuid.uuid4()),
+            "name": name,
+            "year": None,
+            "stage": "",
+            "path": path,
+            "files": [],
+            "created_at": now,
+            "updated_at": now,
+        }
+        projects.append(new_project)
+        existing_names.add(name)
+        existing_paths.add(path)
+        added.append(new_project)
+
+    if added:
+        save_projects(projects)
+    return {"added": len(added), "skipped": skipped, "projects": added}
 
 
 @router.delete("/api/projects/{project_id}")

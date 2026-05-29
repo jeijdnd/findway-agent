@@ -58,6 +58,7 @@ class SafetyAuditor:
 
     WRITE_SKILLS = frozenset({
         "create_project",
+        "manage_projects",
     })
 
     HIGH_RISK_PATH_KEYWORDS = ["register", "install-from-github"]

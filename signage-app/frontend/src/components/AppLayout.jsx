@@ -9,6 +9,7 @@ import Matching from '../pages/Matching'
 import Compare from '../pages/Compare'
 import MergePreview from '../pages/MergePreview'
 import Settings from '../pages/Settings'
+import { chatActionToTrigger } from '../api/dashboardCommands'
 import '../App.css'
 
 // CAD辅助面板组件（最小化实现）
@@ -271,6 +272,11 @@ function AppLayout() {
         setActiveTab('dashboard')
         setCommandTrigger({ type: 'scan', nonce: Date.now() })
         break
+      case 'filter-projects':
+        setViewMode('tool')
+        setActiveTab('dashboard')
+        setCommandTrigger({ type: 'dashboard-filter', nonce: Date.now(), query: '' })
+        break
       case 'matching':
         setViewMode('tool')
         setActiveTab('matching')
@@ -294,16 +300,11 @@ function AppLayout() {
   }
 
   const handleAction = (action, data) => {
-    if (action === 'create_project' || action === 'open_dashboard_create') {
+    const dashTrigger = chatActionToTrigger(action, data)
+    if (dashTrigger) {
       setViewMode('tool')
       setActiveTab('dashboard')
-      setCommandTrigger({
-        type: 'new-project',
-        nonce: Date.now(),
-        projectName: data?.project_name || data?.suggested_name || '',
-        path: data?.path || '',
-        projectType: data?.project_type || '',
-      })
+      setCommandTrigger(dashTrigger)
     } else if (action === 'search_old_project') {
       setViewMode('tool')
       setActiveTab('matching')
@@ -319,7 +320,10 @@ function AppLayout() {
     } else if (action === 'open_scan') {
       setViewMode('tool')
       setActiveTab('dashboard')
-      setCommandTrigger({ type: 'scan', nonce: Date.now() })
+      setCommandTrigger(chatActionToTrigger('open_scan', data) || {
+        type: 'scan',
+        nonce: Date.now(),
+      })
     }
     if (data?.chat_id) {
       setCurrentChatId(data.chat_id)
