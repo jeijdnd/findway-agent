@@ -76,13 +76,32 @@ function WorkBuddyLayout({
         <ResizeHandle onMouseDown={left.startDrag} />
 
         <div className="workbuddy-col-center">
+          {/* === 临时：把 RightToolbar 渲染在 center 顶部，绕过右栏布局 === */}
+          <div
+            style={{
+              display: 'flex',
+              gap: '4px',
+              padding: '8px',
+              background: '#1e293b',
+              borderBottom: '2px solid #3b82f6',
+              flexShrink: 0,
+              zIndex: 10,
+              overflowX: 'auto',
+            }}
+          >
+            {renderRightToolbar ? renderRightToolbar(handleSlideSelect) : (
+              <span style={{ color: 'red' }}>NO RENDER FUNC</span>
+            )}
+          </div>
+
           {viewMode === 'chat' ? centerChat : mainContent}
           <RightPanel open={!!activePanel} panelId={activePanel} onClose={handleClose}>
             {activePanel && renderSlidePanel ? renderSlidePanel(activePanel) : null}
           </RightPanel>
         </div>
 
-        <ResizeHandle onMouseDown={right.startDragReverse} />
+        {/* 暂时注释右栏，排查是否为右栏 CSS 问题 */}
+        {/* <ResizeHandle onMouseDown={right.startDragReverse} />
 
         <div
           className="workbuddy-col-right"
@@ -97,17 +116,12 @@ function WorkBuddyLayout({
             flexDirection: 'column',
           }}
         >
-          {/* 第一层调试：容器本身 */}
           <div style={{ background: '#fbbf24', padding: '4px', fontSize: '10px', flexShrink: 0 }}>
             COL-RIGHT: {right.width}px | hasFunc: {String(!!renderRightToolbar)}
           </div>
-
-          {/* 第二层调试：直接硬编码内容 */}
           <div style={{ background: '#3b82f6', color: '#fff', padding: '10px', flexShrink: 0 }}>
             HARD CODED BUTTON
           </div>
-
-          {/* 第三层：尝试调用 renderRightToolbar */}
           {renderRightToolbar ? (
             <>
               <div style={{ background: '#10b981', padding: '4px', flexShrink: 0 }}>
@@ -120,7 +134,7 @@ function WorkBuddyLayout({
               NO RENDER FUNC!
             </div>
           )}
-        </div>
+        </div> */}
       </div>
     </div>
   )
