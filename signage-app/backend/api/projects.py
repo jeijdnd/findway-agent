@@ -15,8 +15,10 @@ from backend.services.app_data import (
     get_default_project_path,
     DEFAULT_PROJECT_ROOT,
 )
+from backend.engine.scanner import DirectoryScanner
 
 router = APIRouter()
+_scanner = DirectoryScanner()
 
 STAGES = [
     "概念方案",
@@ -159,6 +161,77 @@ def _resolve_project_path(name: str, custom_path: str = "") -> str:
     return os.path.normpath(os.path.join(root, name))
 
 
+def _scan_disk_files(project_path: str) -> List[dict]:
+    """递归扫描项目文件夹，返回文件列表（相对路径 + 修改日期）"""
+    project_path = os.path.normpath(project_path)
+    files: List[dict] = []
+    try:
+        for root, dirs, filenames in os.walk(project_path):
+            dirs[:] = [
+                d for d in dirs
+                if not d.startswith(".") and not _scanner._should_skip_dir(d)
+            ]
+            for name in filenames:
+                if name.startswith(".") or name.startswith("~$"):
+                    continue
+                full = os.path.join(root, name)
+                if not os.path.isfile(full):
+                    continue
+                rel = os.path.relpath(full, project_path).replace("\\", "/")
+                try:
+                    mtime = datetime.fromtimestamp(os.path.getmtime(full)).strftime("%Y-%m-%d")
+                except OSError:
+                    mtime = ""
+                files.append({
+                    "name": rel,
+                    "tag": "",
+                    "uploaded": "",
+                    "modified": mtime,
+                })
+    except (OSError, PermissionError):
+        pass
+    files.sort(key=lambda item: item["name"].lower())
+    return files
+
+
+def _merge_project_files(stored_files: List[dict], disk_files: List[dict]) -> List[dict]:
+    """合并磁盘扫描结果与索引中用户维护的标签/上传日期"""
+    stored_by_name = {f.get("name"): f for f in (stored_files or []) if f.get("name")}
+    merged: List[dict] = []
+    seen = set()
+    for disk_file in disk_files:
+        name = disk_file["name"]
+        seen.add(name)
+        stored = stored_by_name.get(name, {})
+        merged.append({
+            "name": name,
+            "tag": stored.get("tag", ""),
+            "uploaded": stored.get("uploaded", ""),
+            "modified": disk_file.get("modified") or stored.get("modified", ""),
+        })
+    for name, stored in stored_by_name.items():
+        if name not in seen:
+            merged.append(stored)
+    return merged
+
+
+def _enrich_project(project: dict) -> dict:
+    """从项目路径扫描实际文件，填充 files 列表供前端展示"""
+    path = (project.get("path") or "").strip()
+    if not path or not os.path.isdir(path):
+        return project
+    enriched = dict(project)
+    enriched["files"] = _merge_project_files(
+        project.get("files") or [],
+        _scan_disk_files(path),
+    )
+    return enriched
+
+
+def _enrich_projects(projects: List[dict]) -> List[dict]:
+    return [_enrich_project(p) for p in projects]
+
+
 @router.get("/api/projects/stages")
 async def get_stages():
     """获取阶段列表与分组信息"""
@@ -173,8 +246,8 @@ async def get_stages():
 
 @router.get("/api/projects")
 async def list_projects():
-    """获取所有项目，按阶段分组"""
-    projects = load_projects()
+    """获取所有项目，按阶段分组（含磁盘文件扫描）"""
+    projects = _enrich_projects(load_projects())
     grouped = {g: [] for g in STAGE_GROUPS}
     for p in projects:
         group = _stage_group(p.get("stage", "概念方案"))
@@ -222,7 +295,7 @@ async def create_project(project: ProjectCreate):
     }
     projects.append(new_project)
     save_projects(projects)
-    return new_project
+    return _enrich_project(new_project)
 
 
 @router.get("/api/projects/search")
@@ -232,7 +305,7 @@ async def search_projects(
     stage: Optional[str] = None,
 ):
     """按名称、年份、阶段筛选项目（聊天联动接口）"""
-    projects = load_projects()
+    projects = _enrich_projects(load_projects())
     query = (name or "").strip().lower()
     filtered = []
     for p in projects:
@@ -281,7 +354,11 @@ async def import_from_scan(body: ImportScanRequest):
 
     if added:
         save_projects(projects)
-    return {"added": len(added), "skipped": skipped, "projects": added}
+    return {
+        "added": len(added),
+        "skipped": skipped,
+        "projects": _enrich_projects(added),
+    }
 
 
 @router.get("/api/projects/{project_id}")
@@ -290,7 +367,7 @@ async def get_project(project_id: str):
     projects = load_projects()
     for p in projects:
         if p["id"] == project_id:
-            return p
+            return _enrich_project(p)
     raise HTTPException(status_code=404, detail="项目不存在")
 
 
@@ -308,7 +385,7 @@ async def update_project(project_id: str, update: ProjectUpdate):
             data["updated_at"] = datetime.now().isoformat()
             projects[i].update(data)
             save_projects(projects)
-            return projects[i]
+            return _enrich_project(projects[i])
     raise HTTPException(status_code=404, detail="项目不存在")
 
 
@@ -333,7 +410,7 @@ async def add_project_files(project_id: str, body: ProjectFilesAdd):
             p["updated_at"] = datetime.now().isoformat()
             projects[i] = p
             save_projects(projects)
-            return p
+            return _enrich_project(p)
     raise HTTPException(status_code=404, detail="项目不存在")
 
 
