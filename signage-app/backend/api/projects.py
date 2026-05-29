@@ -8,6 +8,7 @@ from typing import List, Optional
 import json
 import os
 import uuid
+import shutil
 from datetime import datetime
 
 from backend.services.app_data import (
@@ -16,6 +17,7 @@ from backend.services.app_data import (
     DEFAULT_PROJECT_ROOT,
 )
 from backend.engine.scanner import DirectoryScanner
+from backend.api.scanner import _check_permission
 
 router = APIRouter()
 _scanner = DirectoryScanner()
@@ -76,6 +78,22 @@ class ProjectUpdate(BaseModel):
 
 class ProjectFilesAdd(BaseModel):
     files: List[ProjectFile]
+
+
+class FileMoveBody(BaseModel):
+    source: str
+    dest_folder: str = ""
+    permission_id: str
+
+
+class FileMkdirBody(BaseModel):
+    folder: str
+    permission_id: str
+
+
+class FileDeleteBody(BaseModel):
+    path: str
+    permission_id: str
 
 
 class ImportScanFolder(BaseModel):
@@ -194,6 +212,26 @@ def _scan_disk_files(project_path: str) -> List[dict]:
     return files
 
 
+def _scan_disk_dirs(project_path: str) -> List[str]:
+    """递归扫描项目文件夹，返回相对路径目录列表（含空文件夹）"""
+    project_path = os.path.normpath(project_path)
+    dirs: List[str] = []
+    try:
+        for root, dirnames, _ in os.walk(project_path):
+            dirnames[:] = [
+                d for d in dirnames
+                if not d.startswith(".") and not _scanner._should_skip_dir(d)
+            ]
+            for name in dirnames:
+                full = os.path.join(root, name)
+                rel = os.path.relpath(full, project_path).replace("\\", "/")
+                dirs.append(rel)
+    except (OSError, PermissionError):
+        pass
+    dirs.sort(key=str.lower)
+    return dirs
+
+
 def _merge_project_files(stored_files: List[dict], disk_files: List[dict]) -> List[dict]:
     """合并磁盘扫描结果与索引中用户维护的标签/上传日期"""
     stored_by_name = {f.get("name"): f for f in (stored_files or []) if f.get("name")}
@@ -225,11 +263,70 @@ def _enrich_project(project: dict) -> dict:
         project.get("files") or [],
         _scan_disk_files(path),
     )
+    enriched["folders"] = _scan_disk_dirs(path)
     return enriched
 
 
 def _enrich_projects(projects: List[dict]) -> List[dict]:
     return [_enrich_project(p) for p in projects]
+
+
+def _norm_rel_path(path: str) -> str:
+    return path.replace("\\", "/").strip().strip("/")
+
+
+def _find_project(projects: List[dict], project_id: str) -> tuple:
+    for i, p in enumerate(projects):
+        if p["id"] == project_id:
+            return i, p
+    return -1, None
+
+
+def _require_project_write(project: dict, permission_id: str) -> str:
+    project_path = (project.get("path") or "").strip()
+    if not project_path or not os.path.isdir(project_path):
+        raise HTTPException(status_code=400, detail="项目路径无效或不存在")
+    if not permission_id:
+        raise HTTPException(status_code=403, detail="未获得用户授权，操作已取消。请先确认权限。")
+    if not _check_permission(permission_id, project_path, "write"):
+        raise HTTPException(status_code=403, detail="未获得用户授权或授权已过期，操作已取消。")
+    return os.path.normpath(project_path)
+
+
+def _rel_to_abs(project_path: str, rel_path: str) -> str:
+    rel = _norm_rel_path(rel_path)
+    if not rel:
+        return project_path
+    return os.path.normpath(os.path.join(project_path, rel.replace("/", os.sep)))
+
+
+def _update_paths_after_move(files: List[dict], source: str, dest_folder: str) -> List[dict]:
+    source = _norm_rel_path(source)
+    dest_folder = _norm_rel_path(dest_folder)
+    basename = source.rsplit("/", 1)[-1]
+    new_prefix = f"{dest_folder}/{basename}" if dest_folder else basename
+    updated = []
+    for f in files:
+        name = _norm_rel_path(f.get("name", ""))
+        if not name:
+            updated.append(f)
+            continue
+        if name == source:
+            updated.append({**f, "name": new_prefix})
+        elif name.startswith(source + "/"):
+            updated.append({**f, "name": new_prefix + name[len(source):]})
+        else:
+            updated.append(f)
+    return updated
+
+
+def _remove_paths_from_index(files: List[dict], target: str) -> List[dict]:
+    target = _norm_rel_path(target)
+    return [
+        f for f in files
+        if _norm_rel_path(f.get("name", "")) != target
+        and not _norm_rel_path(f.get("name", "")).startswith(target + "/")
+    ]
 
 
 @router.get("/api/projects/stages")
@@ -412,6 +509,106 @@ async def add_project_files(project_id: str, body: ProjectFilesAdd):
             save_projects(projects)
             return _enrich_project(p)
     raise HTTPException(status_code=404, detail="项目不存在")
+
+
+@router.post("/api/projects/{project_id}/files/move")
+async def move_project_file(project_id: str, body: FileMoveBody):
+    """移动项目内文件或文件夹（需写入授权）"""
+    projects = load_projects()
+    idx, project = _find_project(projects, project_id)
+    if idx < 0:
+        raise HTTPException(status_code=404, detail="项目不存在")
+
+    project_path = _require_project_write(project, body.permission_id)
+    source = _norm_rel_path(body.source)
+    dest_folder = _norm_rel_path(body.dest_folder)
+    if not source:
+        raise HTTPException(status_code=400, detail="请指定要移动的项")
+
+    full_source = _rel_to_abs(project_path, source)
+    dest_dir = _rel_to_abs(project_path, dest_folder) if dest_folder else project_path
+    basename = source.rsplit("/", 1)[-1]
+    full_dest = os.path.normpath(os.path.join(dest_dir, basename))
+
+    if not os.path.exists(full_source):
+        raise HTTPException(status_code=400, detail=f"路径不存在: {source}")
+    norm_source = os.path.normpath(full_source)
+    norm_dest_dir = os.path.normpath(dest_dir)
+    if norm_source == norm_dest_dir or norm_dest_dir.startswith(norm_source + os.sep):
+        raise HTTPException(status_code=400, detail="不能将文件夹移动到自身或其子目录")
+    if os.path.exists(full_dest):
+        raise HTTPException(status_code=400, detail=f"目标已存在: {basename}")
+
+    try:
+        shutil.move(full_source, full_dest)
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail=f"移动失败: {exc}") from exc
+
+    project["files"] = _update_paths_after_move(project.get("files") or [], source, dest_folder)
+    project["updated_at"] = datetime.now().isoformat()
+    projects[idx] = project
+    save_projects(projects)
+    return _enrich_project(project)
+
+
+@router.post("/api/projects/{project_id}/files/mkdir")
+async def mkdir_project_folder(project_id: str, body: FileMkdirBody):
+    """在项目内新建文件夹（需写入授权）"""
+    projects = load_projects()
+    idx, project = _find_project(projects, project_id)
+    if idx < 0:
+        raise HTTPException(status_code=404, detail="项目不存在")
+
+    project_path = _require_project_write(project, body.permission_id)
+    folder = _norm_rel_path(body.folder)
+    if not folder:
+        raise HTTPException(status_code=400, detail="请指定文件夹名称")
+
+    full_path = _rel_to_abs(project_path, folder)
+    if os.path.exists(full_path):
+        raise HTTPException(status_code=400, detail=f"文件夹已存在: {folder}")
+
+    try:
+        os.makedirs(full_path)
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail=f"创建文件夹失败: {exc}") from exc
+
+    project["updated_at"] = datetime.now().isoformat()
+    projects[idx] = project
+    save_projects(projects)
+    return _enrich_project(project)
+
+
+@router.post("/api/projects/{project_id}/files/delete-item")
+async def delete_project_file_item(project_id: str, body: FileDeleteBody):
+    """删除项目内文件或文件夹（需写入授权）"""
+    projects = load_projects()
+    idx, project = _find_project(projects, project_id)
+    if idx < 0:
+        raise HTTPException(status_code=404, detail="项目不存在")
+
+    project_path = _require_project_write(project, body.permission_id)
+    target = _norm_rel_path(body.path)
+    if not target:
+        raise HTTPException(status_code=400, detail="请指定要删除的项")
+
+    full_path = _rel_to_abs(project_path, target)
+    if not os.path.exists(full_path):
+        raise HTTPException(status_code=400, detail=f"路径不存在: {target}")
+
+    try:
+        if os.path.isdir(full_path):
+            shutil.rmtree(full_path)
+        else:
+            os.remove(full_path)
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail=f"删除失败: {exc}") from exc
+
+    project["files"] = _remove_paths_from_index(project.get("files") or [], target)
+    project["updated_at"] = datetime.now().isoformat()
+    projects[idx] = project
+    save_projects(projects)
+    return _enrich_project(project)
 
 
 @router.delete("/api/projects/{project_id}")

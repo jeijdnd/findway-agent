@@ -283,12 +283,14 @@ function EditProjectForm({ project, onSaved, onCancel }) {
 
 function ProjectDetail({ project, onClose, onUpdate, onDelete }) {
   const [files, setFiles] = useState(project.files || [])
+  const [folders, setFolders] = useState(project.folders || [])
   const [stage, setStage] = useState(project.stage)
   const [dragOver, setDragOver] = useState(false)
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     setFiles(project.files || [])
+    setFolders(project.folders || [])
     setStage(project.stage)
   }, [project])
 
@@ -435,11 +437,19 @@ function ProjectDetail({ project, onClose, onUpdate, onDelete }) {
         <p>拖放文件夹或文件到此处，自动记录名称与上传时间</p>
       </div>
 
-      {files.length > 0 && (
+      {project.path && (
         <ProjectFileTree
+          projectId={project.id}
+          projectPath={project.path}
           files={files}
+          folders={folders}
           onFieldChange={handleFileFieldChange}
           onFieldBlur={handleFileFieldBlur}
+          onFilesChanged={(updated) => {
+            setFiles(updated.files || [])
+            setFolders(updated.folders || [])
+            onUpdate(updated)
+          }}
         />
       )}
 
