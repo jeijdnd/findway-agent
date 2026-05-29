@@ -1,6 +1,7 @@
-' 无黑窗启动 FindWay Agent（供 desktop.bat 调用）
+Dim fso, shell, scriptDir, rootDir
 Set fso = CreateObject("Scripting.FileSystemObject")
 Set shell = CreateObject("WScript.Shell")
-root = fso.GetParentFolderName(WScript.ScriptFullName)
-shell.CurrentDirectory = fso.GetParentFolderName(root)
-shell.Run "node scripts\dev-launcher.js", 0, False
+scriptDir = fso.GetParentFolderName(WScript.ScriptFullName)
+rootDir = fso.GetParentFolderName(scriptDir)
+shell.CurrentDirectory = rootDir
+shell.Run "node """ & rootDir & "\scripts\dev-launcher.js""", 0, False
