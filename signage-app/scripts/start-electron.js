@@ -13,7 +13,7 @@ const child = spawn(electron, ['.'], {
   cwd: root,
   detached,
   stdio: detached ? 'ignore' : 'inherit',
-  windowsHide: true,
+  windowsHide: false,
   env: { ...process.env, NODE_ENV: process.env.NODE_ENV || 'development' },
 });
 

@@ -10,24 +10,55 @@ const { spawn, execSync } = require('child_process');
 const { t } = require('./i18n');
 
 const FAVICON_PATH = path.join(__dirname, '..', 'frontend', 'public', 'favicon.ico');
+const ELECTRON_EXE_ICON = path.join(__dirname, '..', 'node_modules', 'electron', 'dist', 'electron.exe');
 
-/** 返回可用的托盘/窗口图标；优先 favicon，否则回退到 Electron 应用图标 */
+/** 返回可用的托盘/窗口图标 */
 function resolveAppIcon() {
-  if (fs.existsSync(FAVICON_PATH)) {
+  const candidates = [FAVICON_PATH, ELECTRON_EXE_ICON, process.execPath];
+  for (const iconPath of candidates) {
+    if (!iconPath || !fs.existsSync(iconPath)) continue;
     try {
-      const image = nativeImage.createFromPath(FAVICON_PATH);
-      if (!image.isEmpty()) return image;
+      const image = nativeImage.createFromPath(iconPath);
+      if (!image.isEmpty()) {
+        return image.resize({ width: 16, height: 16 });
+      }
     } catch (err) {
-      console.warn('Failed to load favicon:', err.message);
+      console.warn('Failed to load icon:', iconPath, err.message);
     }
   }
-  try {
-    const image = nativeImage.createFromPath(process.execPath);
-    return image.isEmpty() ? null : image;
-  } catch (err) {
-    console.warn('Failed to load fallback icon:', err.message);
-    return null;
+  return null;
+}
+
+function normalizeWindowBounds(bounds) {
+  const { screen } = require('electron');
+  const displays = screen.getAllDisplays();
+  const width = bounds.width || 1400;
+  const height = bounds.height || 900;
+  let x = bounds.x;
+  let y = bounds.y;
+
+  if (typeof x !== 'number' || typeof y !== 'number') {
+    const primary = screen.getPrimaryDisplay();
+    x = primary.workArea.x + Math.max(0, Math.floor((primary.workArea.width - width) / 2));
+    y = primary.workArea.y + Math.max(0, Math.floor((primary.workArea.height - height) / 2));
+    return { x, y, width, height };
   }
+
+  const onScreen = displays.some((display) => {
+    const area = display.workArea;
+    return x < area.x + area.width - 80
+      && y < area.y + area.height - 80
+      && x + width > area.x + 80
+      && y + height > area.y + 80;
+  });
+
+  if (!onScreen) {
+    const primary = screen.getPrimaryDisplay();
+    x = primary.workArea.x + Math.max(0, Math.floor((primary.workArea.width - width) / 2));
+    y = primary.workArea.y + Math.max(0, Math.floor((primary.workArea.height - height) / 2));
+  }
+
+  return { x, y, width, height };
 }
 
 const APP_ROOT = path.join(__dirname, '..');
@@ -353,14 +384,15 @@ function createMainWindow() {
   try {
     const savedBounds = store.get('windowBounds');
     const isMaximized = store.get('isMaximized');
+    const bounds = normalizeWindowBounds(savedBounds || defaultWindowBounds);
 
     const windowOptions = {
-      width: savedBounds.width || 1400,
-      height: savedBounds.height || 900,
+      width: bounds.width,
+      height: bounds.height,
       minWidth: 800,
       minHeight: 600,
-      x: savedBounds.x,
-      y: savedBounds.y,
+      x: bounds.x,
+      y: bounds.y,
       title: 'FindWay Agent',
       webPreferences: {
         preload: path.join(__dirname, 'preload.js'),
@@ -394,7 +426,9 @@ function createMainWindow() {
     });
 
     mainWindow.once('ready-to-show', () => {
+      if (mainWindow.isMinimized()) mainWindow.restore();
       mainWindow.show();
+      mainWindow.focus();
       if (isMaximized) {
         mainWindow.maximize();
       }
