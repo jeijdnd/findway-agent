@@ -17,7 +17,6 @@ from backend.services.app_data import (
     DEFAULT_PROJECT_ROOT,
 )
 from backend.engine.scanner import DirectoryScanner
-from backend.api.scanner import _check_permission
 
 router = APIRouter()
 _scanner = DirectoryScanner()
@@ -283,6 +282,8 @@ def _find_project(projects: List[dict], project_id: str) -> tuple:
 
 
 def _require_project_write(project: dict, permission_id: str) -> str:
+    from backend.api.scanner import _check_permission
+
     project_path = (project.get("path") or "").strip()
     if not project_path or not os.path.isdir(project_path):
         raise HTTPException(status_code=400, detail="项目路径无效或不存在")

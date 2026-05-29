@@ -13,6 +13,7 @@ function runHidden(scriptName) {
     detached: true,
     stdio: 'ignore',
     windowsHide: true,
+    env: { ...process.env, FINDWAY_DETACHED: '1' },
   });
   child.unref();
   return child;

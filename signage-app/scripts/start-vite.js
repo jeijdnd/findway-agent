@@ -1,17 +1,35 @@
 /**
- * 无控制台窗口启动 Vite 开发服务器
+ * 启动 Vite 开发服务器
+ * FINDWAY_DETACHED=1 时后台运行（供 desktop.bat）；否则保持前台（供 dev:inner）
  */
 const { spawn } = require('child_process');
 const path = require('path');
+const fs = require('fs');
 
 const frontendDir = path.join(__dirname, '..', 'frontend');
-const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+const viteBin = path.join(frontendDir, 'node_modules', 'vite', 'bin', 'vite.js');
+const detached = process.env.FINDWAY_DETACHED === '1';
 
-const child = spawn(npm, ['run', 'dev'], {
+if (!fs.existsSync(viteBin)) {
+  console.error('Vite not found. Run: cd frontend && npm install');
+  process.exit(1);
+}
+
+const child = spawn(process.execPath, [viteBin], {
   cwd: frontendDir,
-  detached: true,
-  stdio: 'ignore',
+  detached,
+  stdio: detached ? 'ignore' : 'inherit',
   windowsHide: true,
 });
 
-child.unref();
+if (detached) {
+  child.unref();
+} else {
+  child.on('exit', (code, signal) => {
+    process.exit(code ?? (signal ? 1 : 0));
+  });
+  child.on('error', (err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}

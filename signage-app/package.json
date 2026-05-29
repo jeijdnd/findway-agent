@@ -5,7 +5,7 @@
   "main": "electron/main.js",
   "scripts": {
     "dev": "node scripts/dev-launcher.js",
-    "dev:inner": "concurrently -k \"node scripts/start-vite.js\" \"wait-on http://localhost:5173 && node scripts/start-electron.js\"",
+    "dev:inner": "concurrently \"node scripts/start-vite.js\" \"wait-on http://localhost:5173 && node scripts/start-electron.js\"",
     "build": "npm run frontend-build && electron-builder",
     "frontend-build": "cd frontend && npm run build",
     "preview": "cd frontend && npm run preview",

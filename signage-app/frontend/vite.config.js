@@ -7,6 +7,7 @@ export default defineConfig({
   base: './', // 使用相对路径，适配Electron生产模式
   server: {
     port: 5173,
+    strictPort: true,
     proxy: {
       '/api': {
         target: 'http://127.0.0.1:8765',
