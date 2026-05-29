@@ -1,5 +1,4 @@
 @echo off
-chcp 65001 >nul 2>nul
 cd /d "%~dp0"
 
 if not exist "node_modules\.bin\electron.cmd" (
@@ -14,18 +13,14 @@ if not exist "venv\Scripts\python.exe" (
   exit /b 1
 )
 
-if exist "C:\Program Files\nodejs\node.exe" (
-  set "NODE_EXE=C:\Program Files\nodejs\node.exe"
+set "FINDWAY_NODE="
+if exist "%ProgramFiles%\nodejs\node.exe" (
+  set "FINDWAY_NODE=%ProgramFiles%\nodejs\node.exe"
 ) else if exist "%LOCALAPPDATA%\Programs\node\node.exe" (
-  set "NODE_EXE=%LOCALAPPDATA%\Programs\node\node.exe"
+  set "FINDWAY_NODE=%LOCALAPPDATA%\Programs\node\node.exe"
 ) else (
-  set "NODE_EXE=node"
+  set "FINDWAY_NODE=node"
 )
 
-wscript.exe "%~dp0scripts\launch-hidden.vbs"
-if errorlevel 1 (
-  echo 启动失败，请查看 %%APPDATA%%\FindWay-Agent\launch.log
-  pause
-  exit /b 1
-)
+wscript.exe //Nologo "%~dp0scripts\launch-hidden.vbs"
 exit /b 0
