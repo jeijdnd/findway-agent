@@ -175,3 +175,113 @@ class DirectoryScanner:
             "count": len(dirs),
             "root_path": root_path,
         }
+
+    def _count_files_recursive(self, dir_path: str) -> int:
+        """统计目录下所有文件数量（含子目录）"""
+        count = 0
+        try:
+            for root, dirs, files in os.walk(dir_path):
+                dirs[:] = [
+                    d for d in dirs
+                    if not d.startswith(".") and not self._should_skip_dir(d)
+                ]
+                for name in files:
+                    if not name.startswith("."):
+                        count += 1
+        except (OSError, PermissionError):
+            pass
+        return count
+
+    def scan_folder(self, root_path: str) -> dict:
+        """扫描根目录第一层文件夹，作为项目列表"""
+        root_path = os.path.normpath(root_path)
+        if not os.path.isdir(root_path):
+            return {
+                "folders": [],
+                "root_path": root_path,
+                "count": 0,
+                "error": "目录不存在或不可访问",
+            }
+
+        folders: List[Dict[str, Any]] = []
+        try:
+            with os.scandir(root_path) as entries:
+                for entry in entries:
+                    if not entry.is_dir(follow_symlinks=False):
+                        continue
+                    if self._should_skip_dir(entry.name) or entry.name.startswith("."):
+                        continue
+                    norm_path = os.path.normpath(entry.path)
+                    folders.append({
+                        "name": entry.name,
+                        "path": norm_path,
+                        "file_count": self._count_files_recursive(norm_path),
+                    })
+        except (OSError, PermissionError) as exc:
+            return {
+                "folders": [],
+                "root_path": root_path,
+                "count": 0,
+                "error": str(exc),
+            }
+
+        folders.sort(key=lambda item: item["name"].lower())
+        return {
+            "folders": folders,
+            "root_path": root_path,
+            "count": len(folders),
+        }
+
+    def browse(self, dir_path: str) -> dict:
+        """列出指定文件夹内的直接子文件夹和文件"""
+        dir_path = os.path.normpath(dir_path)
+        if not os.path.isdir(dir_path):
+            return {
+                "folders": [],
+                "files": [],
+                "path": dir_path,
+                "error": "目录不存在或不可访问",
+            }
+
+        folders: List[Dict[str, Any]] = []
+        files: List[Dict[str, Any]] = []
+        try:
+            with os.scandir(dir_path) as entries:
+                for entry in entries:
+                    if entry.name.startswith("."):
+                        continue
+                    if entry.is_dir(follow_symlinks=False):
+                        if self._should_skip_dir(entry.name):
+                            continue
+                        norm_path = os.path.normpath(entry.path)
+                        folders.append({
+                            "name": entry.name,
+                            "path": norm_path,
+                            "file_count": self._count_files_recursive(norm_path),
+                        })
+                    elif entry.is_file(follow_symlinks=False):
+                        norm_path = os.path.normpath(entry.path)
+                        try:
+                            size = entry.stat(follow_symlinks=False).st_size
+                        except OSError:
+                            size = 0
+                        files.append({
+                            "name": entry.name,
+                            "path": norm_path,
+                            "size": size,
+                        })
+        except (OSError, PermissionError) as exc:
+            return {
+                "folders": [],
+                "files": [],
+                "path": dir_path,
+                "error": str(exc),
+            }
+
+        folders.sort(key=lambda item: item["name"].lower())
+        files.sort(key=lambda item: item["name"].lower())
+        return {
+            "folders": folders,
+            "files": files,
+            "path": dir_path,
+        }

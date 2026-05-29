@@ -1,118 +1,319 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { requestFileOperationPermission } from '../utils/filePermission'
 
-function Dashboard({ commandTrigger }) {
-  const [projects, setProjects] = useState([])
-  const [loading, setLoading] = useState(true)
+function formatFileSize(bytes) {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+async function confirmDelete(fileName) {
+  const message = `确定要删除文件「${fileName}」吗？此操作不可撤销。`
+  if (window.electronAPI?.showConfirmDialog) {
+    return window.electronAPI.showConfirmDialog({
+      title: '删除文件',
+      message,
+      confirmText: '删除',
+      cancelText: '取消',
+    })
+  }
+  return window.confirm(message)
+}
+
+function FolderTreeNode({
+  node,
+  permissionId,
+  depth = 0,
+  onChildrenChange,
+}) {
+  const [expanded, setExpanded] = useState(false)
+  const [children, setChildren] = useState(null)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
-  const [showForm, setShowForm] = useState(false)
-  const [formData, setFormData] = useState({
-    name: '',
-    project_type: '',
-    buildings: '',
-    notes: '',
-  })
+  const [dragOver, setDragOver] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [actionMessage, setActionMessage] = useState('')
 
-  const [showScanModal, setShowScanModal] = useState(false)
-  const [scanPath, setScanPath] = useState('')
-  const [scanLoading, setScanLoading] = useState(false)
-  const [scanError, setScanError] = useState(null)
-  const [scanResults, setScanResults] = useState(null)
-  const [registeringPath, setRegisteringPath] = useState(null)
-  const [scanMessage, setScanMessage] = useState('')
-
-  const fetchProjects = async () => {
+  const loadChildren = useCallback(async () => {
+    setLoading(true)
+    setError(null)
     try {
-      setLoading(true)
-      setError(null)
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 10000)
-
-      const response = await fetch('/api/projects', { signal: controller.signal })
-      clearTimeout(timeoutId)
-
+      const response = await fetch('/api/scanner/browse', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: node.path, permission_id: permissionId }),
+      })
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`)
+        const errData = await response.json().catch(() => ({}))
+        throw new Error(errData.detail || errData.message || `HTTP ${response.status}`)
       }
       const data = await response.json()
-      setProjects(data)
+      setChildren(data)
+      return data
     } catch (err) {
-      if (err.name === 'AbortError') {
-        setError('请求超时，请检查后端是否启动')
-      } else {
-        setError('加载项目列表失败: ' + err.message)
-      }
+      setError(err.message)
+      return null
     } finally {
       setLoading(false)
     }
+  }, [node.path, permissionId])
+
+  const toggleExpand = async () => {
+    if (!expanded && !children) {
+      await loadChildren()
+    }
+    setExpanded((prev) => !prev)
   }
 
+  const refreshChildren = async () => {
+    const data = await loadChildren()
+    if (data && onChildrenChange) {
+      onChildrenChange(node.path, data)
+    }
+  }
+
+  const openFile = async (file) => {
+    if (window.electronAPI?.openPath) {
+      const result = await window.electronAPI.openPath(file.path)
+      if (!result.success && result.error) {
+        setActionMessage(`无法打开: ${result.error}`)
+        setTimeout(() => setActionMessage(''), 3000)
+      }
+    } else {
+      setActionMessage('请在桌面应用中打开文件')
+      setTimeout(() => setActionMessage(''), 3000)
+    }
+  }
+
+  const deleteFile = async (file) => {
+    const confirmed = await confirmDelete(file.name)
+    if (!confirmed) return
+
+    try {
+      setActionMessage('')
+      const permission = await requestFileOperationPermission(node.path, 'write')
+      if (!permission.granted) {
+        setActionMessage(permission.message || '已取消删除')
+        return
+      }
+
+      const response = await fetch('/api/files/delete', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          path: file.path,
+          permission_id: permission.permission_id,
+        }),
+      })
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}))
+        throw new Error(errData.detail || errData.message || `HTTP ${response.status}`)
+      }
+      await refreshChildren()
+    } catch (err) {
+      setActionMessage(`删除失败: ${err.message}`)
+    }
+  }
+
+  const uploadFiles = async (fileList) => {
+    if (!fileList?.length) return
+    try {
+      setUploading(true)
+      setActionMessage('')
+      const permission = await requestFileOperationPermission(node.path, 'write')
+      if (!permission.granted) {
+        setActionMessage(permission.message || '已取消上传')
+        return
+      }
+
+      for (const file of fileList) {
+        const formData = new FormData()
+        formData.append('file', file)
+        formData.append('target_dir', node.path)
+        formData.append('permission_id', permission.permission_id)
+        const response = await fetch('/api/files/upload', { method: 'POST', body: formData })
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}))
+          throw new Error(errData.detail || errData.message || `上传 ${file.name} 失败`)
+        }
+      }
+      if (expanded) {
+        await refreshChildren()
+      } else {
+        setExpanded(true)
+        await refreshChildren()
+      }
+      setActionMessage(`已上传 ${fileList.length} 个文件`)
+      setTimeout(() => setActionMessage(''), 2500)
+    } catch (err) {
+      setActionMessage(err.message)
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const handleDragOver = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setDragOver(true)
+  }
+
+  const handleDragLeave = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setDragOver(false)
+  }
+
+  const handleDrop = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setDragOver(false)
+    uploadFiles(Array.from(e.dataTransfer.files))
+  }
+
+  return (
+    <div className="file-tree-node">
+      <div
+        className={`file-tree-row ${dragOver ? 'drag-over' : ''}`}
+        style={{ paddingLeft: `${depth * 16 + 8}px` }}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
+        <button
+          type="button"
+          className="file-tree-toggle"
+          onClick={toggleExpand}
+          aria-label={expanded ? '收起' : '展开'}
+        >
+          {loading ? '…' : expanded ? '▼' : '▶'}
+        </button>
+        <span className="file-tree-icon">📁</span>
+        <span className="file-tree-name" onClick={toggleExpand} role="presentation">
+          {node.name}
+        </span>
+        <span className="file-tree-count">{node.file_count} 个文件</span>
+        {uploading && <span className="file-tree-action-hint">上传中…</span>}
+      </div>
+
+      {actionMessage && (
+        <p
+          className="file-tree-message"
+          style={{ paddingLeft: `${depth * 16 + 32}px` }}
+        >
+          {actionMessage}
+        </p>
+      )}
+
+      {expanded && error && (
+        <p className="file-tree-error" style={{ paddingLeft: `${depth * 16 + 32}px` }}>
+          {error}
+        </p>
+      )}
+
+      {expanded && children && (
+        <div className="file-tree-children">
+          {children.folders?.map((folder) => (
+            <FolderTreeNode
+              key={folder.path}
+              node={folder}
+              permissionId={permissionId}
+              depth={depth + 1}
+              onChildrenChange={onChildrenChange}
+            />
+          ))}
+          {children.files?.map((file) => (
+            <div
+              key={file.path}
+              className="file-tree-row file-tree-file-row"
+              style={{ paddingLeft: `${(depth + 1) * 16 + 28}px` }}
+            >
+              <span className="file-tree-icon">📄</span>
+              <button
+                type="button"
+                className="file-tree-file-btn"
+                onClick={() => openFile(file)}
+                title={file.path}
+              >
+                {file.name}
+              </button>
+              <span className="file-tree-size">{formatFileSize(file.size)}</span>
+              <button
+                type="button"
+                className="file-tree-delete-btn"
+                onClick={() => deleteFile(file)}
+                title="删除文件"
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+          {!loading &&
+            !children.folders?.length &&
+            !children.files?.length && (
+              <p
+                className="file-tree-empty"
+                style={{ paddingLeft: `${(depth + 1) * 16 + 28}px` }}
+              >
+                空文件夹 — 拖放文件到此处上传
+              </p>
+            )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function Dashboard({ commandTrigger }) {
+  const [rootPath, setRootPath] = useState('')
+  const [scanLoading, setScanLoading] = useState(false)
+  const [scanError, setScanError] = useState(null)
+  const [folders, setFolders] = useState([])
+  const [permissionId, setPermissionId] = useState(null)
+  const [scannedRoot, setScannedRoot] = useState('')
+  const [configLoaded, setConfigLoaded] = useState(false)
+
   useEffect(() => {
-    fetchProjects()
+    async function loadConfig() {
+      try {
+        const res = await fetch('/api/scanner/config')
+        if (res.ok) {
+          const cfg = await res.json()
+          const dirs = cfg.watch_dirs || []
+          if (dirs.length > 0 && !rootPath) {
+            setRootPath(dirs[0])
+          }
+        }
+      } catch {
+        // 用户可手动输入
+      } finally {
+        setConfigLoaded(true)
+      }
+    }
+    loadConfig()
   }, [])
 
   useEffect(() => {
     if (!commandTrigger?.type) return
     if (commandTrigger.type === 'scan') {
-      openScanModal()
-    } else if (commandTrigger.type === 'new-project') {
-      setShowForm(true)
-      const projectName = commandTrigger.projectName || ''
-      const projectPath = commandTrigger.path || ''
-      const projectType = commandTrigger.projectType || ''
-      if (projectName || projectPath || projectType) {
-        setFormData((prev) => ({
-          ...prev,
-          name: projectName || prev.name,
-          project_type: projectType || prev.project_type,
-          notes: projectPath
-            ? prev.notes.includes(projectPath)
-              ? prev.notes
-              : `项目路径：${projectPath}${prev.notes ? `\n${prev.notes}` : ''}`
-            : prev.notes,
-        }))
+      if (commandTrigger.path) {
+        setRootPath(commandTrigger.path)
       }
+      runScan(commandTrigger.path || rootPath)
     }
   }, [commandTrigger])
 
-  const openScanModal = async () => {
-    setShowScanModal(true)
-    setScanError(null)
-    setScanResults(null)
-    setScanMessage('')
-    if (scanPath) return
-    try {
-      const res = await fetch('/api/scanner/config')
-      if (res.ok) {
-        const cfg = await res.json()
-        const dirs = cfg.watch_dirs || []
-        if (dirs.length > 0) {
-          setScanPath(dirs[0])
-        }
-      }
-    } catch {
-      // 忽略，用户可手动输入
-    }
-  }
-
-  const closeScanModal = () => {
-    setShowScanModal(false)
-    setScanError(null)
-    setScanResults(null)
-    setScanMessage('')
-  }
-
-  const runScan = async () => {
-    const root = scanPath.trim()
+  const runScan = async (pathOverride) => {
+    const root = (pathOverride || rootPath).trim()
     if (!root) {
       setScanError('请输入要扫描的目录路径')
       return
     }
+
     try {
       setScanLoading(true)
       setScanError(null)
-      setScanResults(null)
-      setScanMessage('')
+      setFolders([])
 
       const permission = await requestFileOperationPermission(root, 'scan')
       if (!permission.granted) {
@@ -120,392 +321,102 @@ function Dashboard({ commandTrigger }) {
         return
       }
 
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 60000)
+      setPermissionId(permission.permission_id)
 
-      const response = await fetch('/api/scanner/scan', {
+      const response = await fetch('/api/scanner/scan-folder', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           root_path: root,
-          quick: false,
           permission_id: permission.permission_id,
         }),
-        signal: controller.signal,
       })
-      clearTimeout(timeoutId)
 
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}))
         throw new Error(errData.detail || errData.message || `HTTP ${response.status}`)
       }
+
       const data = await response.json()
-      setScanResults(data)
+      setFolders(data.folders || [])
+      setScannedRoot(data.root_path || root)
     } catch (err) {
-      if (err.name === 'AbortError') {
-        setScanError('扫描超时，目录可能过大，请缩小范围后重试')
-      } else {
-        setScanError('扫描失败: ' + err.message)
-      }
+      setScanError(`扫描失败: ${err.message}`)
     } finally {
       setScanLoading(false)
     }
   }
 
-  const registerScannedProject = async (item) => {
-    try {
-      setRegisteringPath(item.path)
-      setScanMessage('')
-
-      const permission = await requestFileOperationPermission(item.path, 'write')
-      if (!permission.granted) {
-        setScanMessage(permission.message || '您已拒绝注册操作，已取消。')
-        return
-      }
-
-      const response = await fetch('/api/scanner/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: item.name,
-          path: item.path,
-          notes: `扫描注册，目录：${item.path}`,
-          permission_id: permission.permission_id,
-        }),
-      })
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}))
-        throw new Error(errData.detail || errData.message || `HTTP ${response.status}`)
-      }
-      setScanMessage(`已注册项目「${item.name}」`)
-      await fetchProjects()
-      setTimeout(() => setScanMessage(''), 3000)
-    } catch (err) {
-      setScanMessage('注册失败: ' + err.message)
-    } finally {
-      setRegisteringPath(null)
-    }
-  }
-
-  const handleCreate = async (e) => {
-    e.preventDefault()
-    if (!formData.name.trim()) return
-
-    try {
-      const response = await fetch('/api/projects', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: formData.name,
-          project_type: formData.project_type,
-          buildings: formData.buildings.split(',').map((b) => b.trim()).filter(Boolean),
-          notes: formData.notes,
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`)
-      }
-
-      setShowForm(false)
-      setFormData({ name: '', project_type: '', buildings: '', notes: '' })
-      fetchProjects()
-    } catch (err) {
-      alert('创建项目失败: ' + err.message)
-    }
-  }
-
-  const isProjectRegistered = (item) => {
-    return projects.some(
-      (p) => p.name === item.name || (p.notes && p.notes.includes(item.path))
-    )
-  }
-
-  if (loading) {
+  if (!configLoaded) {
     return <div className="loading">加载中...</div>
   }
 
-  if (error) {
-    return (
-      <div className="error-state">
-        <h2>加载失败</h2>
-        <p>{error}</p>
-        <button className="btn-primary" onClick={fetchProjects} style={{ marginTop: '12px' }}>
-          重试
+  return (
+    <div className="dashboard-file-browser">
+      <div className="dashboard-header">
+        <h2>项目仪表盘</h2>
+        <p className="dashboard-subtitle">浏览项目文件夹，拖放上传或管理系统中的文件</p>
+      </div>
+
+      <div className="dashboard-scan-bar">
+        <input
+          type="text"
+          value={rootPath}
+          onChange={(e) => setRootPath(e.target.value)}
+          placeholder="例如：E:\MingRui\_项目文件"
+          className="dashboard-path-input"
+          onKeyDown={(e) => e.key === 'Enter' && runScan()}
+        />
+        <button
+          className="btn-primary"
+          onClick={() => runScan()}
+          disabled={scanLoading}
+        >
+          {scanLoading ? '扫描中...' : '扫描目录'}
         </button>
       </div>
-    )
-  }
 
-  return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-        <h2 style={{ fontSize: '18px' }}>进行中的项目</h2>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <button
-            className="btn-primary"
-            onClick={openScanModal}
-            style={{ background: '#6b7280' }}
-          >
-            扫描目录
-          </button>
-          <button className="btn-primary" onClick={() => setShowForm(!showForm)}>
-            {showForm ? '取消' : '+ 新建项目'}
+      {scanError && (
+        <div className="error-state" style={{ padding: '12px 0' }}>
+          <p style={{ margin: '0 0 8px 0' }}>{scanError}</p>
+          <button className="btn-primary" onClick={() => runScan()}>
+            重试
           </button>
         </div>
-      </div>
-
-      {showForm && (
-        <form
-          onSubmit={handleCreate}
-          style={{
-            background: 'white',
-            padding: '16px',
-            borderRadius: '8px',
-            marginBottom: '16px',
-            border: '1px solid var(--border)',
-          }}
-        >
-          <div className="form-group">
-            <label>项目名称 *</label>
-            <input
-              type="text"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder="例如：珠海理工"
-              required
-            />
-          </div>
-          <div className="form-group">
-            <label>项目类型</label>
-            <select
-              value={formData.project_type}
-              onChange={(e) => setFormData({ ...formData, project_type: e.target.value })}
-            >
-              <option value="">请选择类型</option>
-              <option value="学校">学校</option>
-              <option value="办公">办公</option>
-              <option value="住宅">住宅</option>
-              <option value="产业园">产业园</option>
-              <option value="实验室">实验室</option>
-              <option value="其他">其他</option>
-            </select>
-          </div>
-          <div className="form-group">
-            <label>楼栋列表（逗号分隔）</label>
-            <input
-              type="text"
-              value={formData.buildings}
-              onChange={(e) => setFormData({ ...formData, buildings: e.target.value })}
-              placeholder="例如：教学楼, 宿舍楼, 实验楼"
-            />
-          </div>
-          <div className="form-group">
-            <label>备注</label>
-            <textarea
-              rows={3}
-              value={formData.notes}
-              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              placeholder="项目备注信息..."
-            />
-          </div>
-          <button type="submit" className="btn-primary">
-            创建项目
-          </button>
-        </form>
       )}
 
-      {projects.length === 0 ? (
+      {scannedRoot && !scanError && (
+        <p className="dashboard-root-label">
+          根目录：<code>{scannedRoot}</code>
+          {folders.length > 0 && ` · 共 ${folders.length} 个项目文件夹`}
+        </p>
+      )}
+
+      {scanLoading ? (
+        <div className="loading">正在扫描目录...</div>
+      ) : folders.length === 0 && scannedRoot && !scanError ? (
         <div className="empty-state">
-          <h2>暂无项目</h2>
-          <p>点击上方「新建项目」或「扫描目录」发现本地项目</p>
+          <h2>暂无项目文件夹</h2>
+          <p>该目录下没有子文件夹，请检查路径是否正确</p>
+        </div>
+      ) : folders.length > 0 ? (
+        <div className="file-tree">
+          {folders.map((folder) => (
+            <FolderTreeNode
+              key={folder.path}
+              node={folder}
+              permissionId={permissionId}
+              depth={0}
+            />
+          ))}
         </div>
       ) : (
-        projects.map((project) => (
-          <div key={project.id} className="project-card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3>{project.name}</h3>
-              <span className="stage">{project.stage}</span>
-            </div>
-            {project.project_type && (
-              <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '6px' }}>
-                类型：{project.project_type}
-                {project.buildings.length > 0 && ` | 楼栋：${project.buildings.join(', ')}`}
-              </p>
-            )}
-            {project.notes && (
-              <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                {project.notes}
-              </p>
-            )}
-            <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '8px' }}>
-              创建时间：{new Date(project.created_at).toLocaleString('zh-CN')}
-            </p>
+        !scanError && (
+          <div className="empty-state">
+            <h2>开始浏览项目文件</h2>
+            <p>输入目录路径后点击「扫描目录」，将显示第一层项目文件夹</p>
           </div>
-        ))
-      )}
-
-      {showScanModal && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.45)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000,
-            padding: '16px',
-          }}
-          onClick={closeScanModal}
-        >
-          <div
-            style={{
-              background: 'white',
-              borderRadius: '10px',
-              padding: '20px',
-              width: '100%',
-              maxWidth: '560px',
-              maxHeight: '80vh',
-              overflow: 'auto',
-              boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 style={{ fontSize: '16px', margin: '0 0 12px 0' }}>扫描目录</h3>
-            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 12px 0' }}>
-              自动发现含 Excel 清单（.xlsx）的项目文件夹，只读扫描不修改文件
-            </p>
-            <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-              <input
-                type="text"
-                value={scanPath}
-                onChange={(e) => setScanPath(e.target.value)}
-                placeholder="例如：E:\projects"
-                style={{
-                  flex: 1,
-                  padding: '8px 12px',
-                  border: '1px solid var(--border)',
-                  borderRadius: '6px',
-                  fontSize: '14px',
-                }}
-                onKeyPress={(e) => e.key === 'Enter' && runScan()}
-              />
-              <button className="btn-primary" onClick={runScan} disabled={scanLoading}>
-                {scanLoading ? '扫描中...' : '开始扫描'}
-              </button>
-            </div>
-
-            {scanMessage && (
-              <p
-                style={{
-                  fontSize: '13px',
-                  margin: '0 0 12px 0',
-                  color: scanMessage.includes('失败') ? '#dc2626' : '#16a34a',
-                }}
-              >
-                {scanMessage}
-              </p>
-            )}
-
-            {scanLoading ? (
-              <div className="loading" style={{ padding: '24px 0' }}>
-                正在扫描目录...
-              </div>
-            ) : scanError ? (
-              <div className="error-state" style={{ padding: '12px 0' }}>
-                <p style={{ margin: '0 0 12px 0' }}>{scanError}</p>
-                <button className="btn-primary" onClick={runScan}>
-                  重试
-                </button>
-              </div>
-            ) : scanResults ? (
-              scanResults.projects?.length === 0 ? (
-                <div className="empty-state" style={{ padding: '16px 0' }}>
-                  <p style={{ margin: 0 }}>未发现项目目录（需包含 .xlsx 清单文件）</p>
-                </div>
-              ) : (
-                <div>
-                  <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 10px 0' }}>
-                    共发现 {scanResults.count} 个项目
-                  </p>
-                  <div style={{ display: 'grid', gap: '8px' }}>
-                    {scanResults.projects.map((item) => {
-                      const registered = isProjectRegistered(item)
-                      return (
-                        <div
-                          key={item.path}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '10px',
-                            padding: '10px 12px',
-                            border: '1px solid var(--border)',
-                            borderRadius: '8px',
-                            background: '#fafafa',
-                          }}
-                        >
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: '14px', fontWeight: 600 }}>{item.name}</div>
-                            <div
-                              style={{
-                                fontSize: '12px',
-                                color: 'var(--text-secondary)',
-                                wordBreak: 'break-all',
-                              }}
-                            >
-                              {item.path}
-                            </div>
-                            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                              {item.file_count} 个 Excel 文件
-                            </div>
-                          </div>
-                          <button
-                            className="btn-primary"
-                            onClick={() => registerScannedProject(item)}
-                            disabled={registered || registeringPath === item.path}
-                            style={{
-                              flexShrink: 0,
-                              background: registered ? '#9ca3af' : undefined,
-                              fontSize: '13px',
-                              padding: '6px 12px',
-                            }}
-                          >
-                            {registeringPath === item.path
-                              ? '注册中...'
-                              : registered
-                                ? '已注册'
-                                : '注册'}
-                          </button>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              )
-            ) : (
-              <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0 }}>
-                输入目录路径后点击「开始扫描」
-              </p>
-            )}
-
-            <div style={{ marginTop: '16px', textAlign: 'right' }}>
-              <button
-                type="button"
-                onClick={closeScanModal}
-                style={{
-                  padding: '8px 16px',
-                  border: '1px solid var(--border)',
-                  borderRadius: '6px',
-                  background: 'white',
-                  cursor: 'pointer',
-                }}
-              >
-                关闭
-              </button>
-            </div>
-          </div>
-        </div>
+        )
       )}
     </div>
   )

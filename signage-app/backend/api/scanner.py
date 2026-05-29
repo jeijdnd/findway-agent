@@ -196,6 +196,37 @@ class ListSubdirsRequest(BaseModel):
     permission_id: Optional[str] = None
 
 
+class ScanFolderRequest(BaseModel):
+    root_path: str
+    permission_id: Optional[str] = None
+
+
+class BrowseRequest(BaseModel):
+    path: str
+    permission_id: Optional[str] = None
+
+
+def _require_read_permission(path: str, permission_id: Optional[str], operation: str = "scan") -> None:
+    norm_path = os.path.normpath(path.strip())
+    if not norm_path:
+        raise HTTPException(status_code=400, detail="请提供有效的目录路径")
+    if not permission_id:
+        raise HTTPException(
+            status_code=403,
+            detail="未获得用户授权，操作已取消。请先确认权限。",
+        )
+    if not _check_permission(permission_id, norm_path, operation):
+        raise HTTPException(
+            status_code=403,
+            detail="未获得用户授权或授权已过期，操作已取消。",
+        )
+    if not os.path.isdir(norm_path):
+        raise HTTPException(
+            status_code=400,
+            detail=f"目录不存在或不可访问: {norm_path}",
+        )
+
+
 def _list_subdirs_with_permission(
     root_path: str,
     max_depth: int,
@@ -386,6 +417,30 @@ async def list_subdirs_post(body: ListSubdirsRequest):
     default_depth = config.get("scanner", {}).get("max_depth", 3)
     depth = body.max_depth if body.max_depth > 0 else default_depth
     return _list_subdirs_with_permission(body.path, depth, body.permission_id)
+
+
+@router.post("/api/scanner/scan-folder")
+async def scan_folder(body: ScanFolderRequest):
+    """扫描根目录第一层文件夹，返回项目列表（需用户授权）"""
+    root_path = os.path.normpath(body.root_path.strip())
+    _require_read_permission(root_path, body.permission_id, "scan")
+
+    result = scanner_engine.scan_folder(root_path)
+    if result.get("error"):
+        raise HTTPException(status_code=400, detail=result["error"])
+    return result
+
+
+@router.post("/api/scanner/browse")
+async def browse_folder(body: BrowseRequest):
+    """返回指定文件夹内的子文件夹和文件（需用户授权）"""
+    target = os.path.normpath(body.path.strip())
+    _require_read_permission(target, body.permission_id, "scan")
+
+    result = scanner_engine.browse(target)
+    if result.get("error"):
+        raise HTTPException(status_code=400, detail=result["error"])
+    return result
 
 
 @router.post("/api/scanner/scan")

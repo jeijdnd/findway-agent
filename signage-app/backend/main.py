@@ -20,6 +20,7 @@ from backend.api.cad import router as cad_router
 from backend.api.api_configs import router as api_configs_router
 from backend.api.merge import router as merge_router
 from backend.api.scanner import router as scanner_router
+from backend.api.files import router as files_router
 from backend.api.chat_history import router as chat_history_router
 from backend.api.logs import router as logs_router
 from backend.api.skills import router as skills_router
@@ -59,6 +60,7 @@ app.include_router(cad_router)
 app.include_router(api_configs_router)
 app.include_router(merge_router)
 app.include_router(scanner_router)
+app.include_router(files_router)
 app.include_router(logs_router)
 app.include_router(skills_router)
 app.include_router(safety_router)

@@ -2,7 +2,7 @@
  * FindWay Agent Electron 主进程
  * 启动隐藏后端子进程，管理窗口与系统托盘
  */
-const { app, BrowserWindow, Tray, Menu, dialog, ipcMain, nativeImage } = require('electron');
+const { app, BrowserWindow, Tray, Menu, dialog, ipcMain, nativeImage, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const http = require('http');
@@ -374,6 +374,18 @@ function setupIPC() {
       detail: options.detail || '',
     });
     return result.response === 0;
+  });
+
+  ipcMain.handle('open-path', async (_event, filePath) => {
+    if (!filePath || typeof filePath !== 'string') {
+      return { success: false, error: '无效路径' };
+    }
+    try {
+      const result = await shell.openPath(filePath);
+      return { success: result === '', error: result || null };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
   });
 
   ipcMain.on('send-maximize-change', (event, isMaximized) => {

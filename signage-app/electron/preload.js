@@ -51,6 +51,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   showConfirmDialog: (options) => {
     return ipcRenderer.invoke('show-confirm-dialog', options);
   },
+
+  /**
+   * 用系统默认程序打开文件或文件夹
+   * @param {string} filePath - 绝对路径
+   * @returns {Promise<{success: boolean, error?: string}>}
+   */
+  openPath: (filePath) => {
+    return ipcRenderer.invoke('open-path', filePath);
+  },
   
   /**
    * 监听Python后端状态

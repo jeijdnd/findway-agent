@@ -712,6 +712,202 @@
   background: var(--primary-light);
 }
 
+/* 项目文件浏览器 */
+.dashboard-file-browser {
+  max-width: 100%;
+}
+
+.dashboard-header h2 {
+  font-size: 18px;
+  margin: 0 0 4px 0;
+}
+
+.dashboard-subtitle {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 0 0 16px 0;
+}
+
+.dashboard-scan-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.dashboard-path-input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 14px;
+  outline: none;
+}
+
+.dashboard-path-input:focus {
+  border-color: var(--primary);
+}
+
+.dashboard-root-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 0 0 12px 0;
+}
+
+.dashboard-root-label code {
+  font-size: 12px;
+  background: #f1f5f9;
+  padding: 2px 6px;
+  border-radius: 4px;
+  word-break: break-all;
+}
+
+.file-tree {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 0;
+  overflow: auto;
+  max-height: calc(100vh - 280px);
+}
+
+.file-tree-node {
+  user-select: none;
+}
+
+.file-tree-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  min-height: 32px;
+  transition: background 0.15s;
+}
+
+.file-tree-row:hover {
+  background: #f8fafc;
+}
+
+.file-tree-row.drag-over {
+  background: #dbeafe;
+  outline: 1px dashed var(--primary);
+}
+
+.file-tree-toggle {
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 10px;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.file-tree-icon {
+  flex-shrink: 0;
+  font-size: 14px;
+}
+
+.file-tree-name {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-tree-count {
+  font-size: 12px;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+  margin-left: auto;
+  padding-right: 8px;
+}
+
+.file-tree-action-hint {
+  font-size: 12px;
+  color: var(--primary);
+  flex-shrink: 0;
+}
+
+.file-tree-file-row {
+  padding-left: 28px;
+}
+
+.file-tree-file-btn {
+  flex: 1;
+  text-align: left;
+  border: none;
+  background: transparent;
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0;
+}
+
+.file-tree-file-btn:hover {
+  color: var(--primary);
+  text-decoration: underline;
+}
+
+.file-tree-size {
+  font-size: 11px;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.file-tree-delete-btn {
+  width: 22px;
+  height: 22px;
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 12px;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s, background 0.15s;
+}
+
+.file-tree-file-row:hover .file-tree-delete-btn {
+  opacity: 1;
+}
+
+.file-tree-delete-btn:hover {
+  color: #dc2626;
+  background: #fee2e2;
+}
+
+.file-tree-message {
+  font-size: 12px;
+  margin: 0;
+  padding: 2px 0 4px;
+  color: #16a34a;
+}
+
+.file-tree-error {
+  font-size: 12px;
+  margin: 0;
+  padding: 2px 0 4px;
+  color: #dc2626;
+}
+
+.file-tree-empty {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin: 4px 0;
+  font-style: italic;
+}
+
 .status-bar {
   display: flex;
   align-items: center;
