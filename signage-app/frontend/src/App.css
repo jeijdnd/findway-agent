@@ -919,43 +919,123 @@
   background: #eff6ff;
 }
 
-.project-files-table {
-  overflow-x: auto;
+.project-files-tree {
   margin-bottom: 12px;
-}
-
-.project-files-table table {
-  width: 100%;
-  border-collapse: collapse;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
   font-size: 13px;
 }
 
-.project-files-table th,
-.project-files-table td {
-  padding: 8px 10px;
-  border-bottom: 1px solid var(--border);
-  text-align: left;
+.file-tree-header,
+.file-tree-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 100px 100px 130px;
+  align-items: center;
+  column-gap: 8px;
 }
 
-.project-files-table th {
+.file-tree-header {
+  padding: 8px 10px;
   background: #f8fafc;
   font-weight: 500;
   color: var(--text-secondary);
+  border-bottom: 1px solid var(--border);
 }
 
-.project-files-table .file-name-cell {
-  max-width: 200px;
+.file-tree-body {
+  max-height: 480px;
+  overflow-y: auto;
+}
+
+.file-tree-row {
+  padding: 6px 10px;
+  border-bottom: 1px solid #f1f5f9;
+  min-height: 34px;
+}
+
+.file-tree-row:last-child {
+  border-bottom: none;
+}
+
+.file-tree-folder {
+  cursor: pointer;
+  user-select: none;
+  background: #fafbfc;
+}
+
+.file-tree-folder:hover {
+  background: #f1f5f9;
+}
+
+.file-tree-file:hover {
+  background: #f8fafc;
+}
+
+.file-tree-name-col {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding-left: calc(var(--tree-depth, 0) * 18px);
+}
+
+.file-tree-toggle {
+  width: 14px;
+  flex-shrink: 0;
+  font-size: 10px;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.file-tree-toggle-spacer {
+  visibility: hidden;
+}
+
+.file-tree-icon {
+  flex-shrink: 0;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.file-tree-label {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.project-files-table select,
-.project-files-table input[type="date"] {
+.file-tree-folder-count {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-left: 4px;
+}
+
+.file-tree-folder-count::before {
+  content: '(';
+}
+
+.file-tree-folder-count::after {
+  content: ')';
+}
+
+.file-tree-col {
+  min-width: 0;
+}
+
+.file-tree-date {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.file-tree-col select,
+.file-tree-col input[type="date"] {
+  width: 100%;
   padding: 4px 6px;
   border: 1px solid var(--border);
   border-radius: 4px;
   font-size: 12px;
+  box-sizing: border-box;
 }
 
 .project-detail-actions {

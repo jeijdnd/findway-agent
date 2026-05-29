@@ -11,6 +11,7 @@ import {
   fetchDefaultProjectPath,
   DEFAULT_PROJECT_ROOT,
 } from '../api/dashboardCommands'
+import ProjectFileTree from '../components/ProjectFileTree'
 
 const STAGE_OPTIONS = [
   '概念方案', '方案设计', '施工图', '审图',
@@ -26,8 +27,6 @@ const GROUP_ICONS = {
   已完成: '⚪',
   暂停: '⏸️',
 }
-
-const FILE_TAGS = ['', '初稿', '审图版', '最终版', '施工图', '竣工图']
 
 function displayYear(year) {
   return year == null || year === '' ? '未设置' : year
@@ -437,45 +436,11 @@ function ProjectDetail({ project, onClose, onUpdate, onDelete }) {
       </div>
 
       {files.length > 0 && (
-        <div className="project-files-table">
-          <table>
-            <thead>
-              <tr>
-                <th>文件名</th>
-                <th>标签</th>
-                <th>上传日期</th>
-                <th>修改日期</th>
-              </tr>
-            </thead>
-            <tbody>
-              {files.map((file, idx) => (
-                <tr key={`${file.name}-${idx}`}>
-                  <td className="file-name-cell">{file.name}</td>
-                  <td>
-                    <select
-                      value={file.tag || ''}
-                      onChange={(e) => handleFileFieldChange(idx, 'tag', e.target.value)}
-                      onBlur={handleFileFieldBlur}
-                    >
-                      {FILE_TAGS.map((t) => (
-                        <option key={t} value={t}>{t || '无'}</option>
-                      ))}
-                    </select>
-                  </td>
-                  <td>{file.uploaded || '—'}</td>
-                  <td>
-                    <input
-                      type="date"
-                      value={file.modified || ''}
-                      onChange={(e) => handleFileFieldChange(idx, 'modified', e.target.value)}
-                      onBlur={handleFileFieldBlur}
-                    />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <ProjectFileTree
+          files={files}
+          onFieldChange={handleFileFieldChange}
+          onFieldBlur={handleFileFieldBlur}
+        />
       )}
 
       {saving && <p className="saving-hint">保存中…</p>}
