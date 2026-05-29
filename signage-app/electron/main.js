@@ -134,33 +134,111 @@ function checkBackendHasFileBrowser() {
   return checkBackendHasRequiredFeatures();
 }
 
-/** 终止占用指定端口的进程（开发模式清理旧后端） */
-function killProcessOnPort(port) {
+/** 终止进程树（含子进程） */
+function killProcessTree(pid) {
+  if (!pid || pid === process.pid) return;
+  try {
+    if (process.platform === 'win32') {
+      execSync(`taskkill /F /PID ${pid} /T`, { stdio: 'ignore' });
+    } else {
+      execSync(`kill -9 ${pid}`, { stdio: 'ignore' });
+    }
+  } catch {
+    if (process.platform === 'win32') {
+      try {
+        execSync(
+          `powershell -NoProfile -Command "Stop-Process -Id ${pid} -Force -ErrorAction SilentlyContinue"`,
+          { stdio: 'ignore' },
+        );
+      } catch {
+        // 进程可能已退出
+      }
+    }
+  }
+}
+
+/** 收集占用端口及 uvicorn 僵尸子进程 PID */
+function collectStaleBackendPids(port) {
+  const pids = new Set();
+
   try {
     if (process.platform === 'win32') {
       const out = execSync(`netstat -ano | findstr :${port} | findstr LISTENING`, {
         encoding: 'utf8',
         stdio: ['ignore', 'pipe', 'ignore'],
       });
-      const pids = new Set();
       for (const line of out.split('\n')) {
         const parts = line.trim().split(/\s+/);
-        const pid = parts[parts.length - 1];
-        if (pid && /^\d+$/.test(pid) && pid !== '0') {
-          pids.add(pid);
-        }
+        const pid = parseInt(parts[parts.length - 1], 10);
+        if (pid > 0) pids.add(pid);
       }
-      for (const pid of pids) {
-        try {
-          execSync(`taskkill /F /PID ${pid} /T`, { stdio: 'ignore' });
-        } catch {
-          // 进程可能已退出
-        }
+    } else {
+      const out = execSync(`lsof -ti :${port} -sTCP:LISTEN`, { encoding: 'utf8' });
+      for (const line of out.trim().split('\n')) {
+        const pid = parseInt(line, 10);
+        if (pid > 0) pids.add(pid);
       }
     }
   } catch {
-    // 端口无监听进程
+    // 端口无监听
   }
+
+  try {
+    if (process.platform === 'win32') {
+      const ps = [
+        'Get-CimInstance Win32_Process | Where-Object {',
+        "$_.Name -match '^python'",
+        '} | Where-Object {',
+        `($_.CommandLine -match 'uvicorn' -and $_.CommandLine -match 'backend\\.main' -and $_.CommandLine -match '${port}')`,
+        "-or $_.CommandLine -match 'multiprocessing\\.spawn'",
+        '} | Select-Object -ExpandProperty ProcessId',
+      ].join(' ');
+      const out = execSync(`powershell -NoProfile -Command "${ps}"`, {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+        maxBuffer: 4 * 1024 * 1024,
+      });
+      for (const line of out.split(/\r?\n/)) {
+        const pid = parseInt(line.trim(), 10);
+        if (pid > 0) pids.add(pid);
+      }
+    } else {
+      const out = execSync(`pgrep -f "uvicorn.*backend.main.*--port ${port}"`, { encoding: 'utf8' });
+      for (const line of out.trim().split('\n')) {
+        const pid = parseInt(line, 10);
+        if (pid > 0) pids.add(pid);
+      }
+    }
+  } catch {
+    // 无匹配 Python 进程
+  }
+
+  return pids;
+}
+
+/**
+ * 清理 8765 端口残留后端（含 uvicorn --reload 孤儿子进程）
+ * REQUIREMENTS P0：启动/关闭时自动清理僵尸进程
+ */
+function cleanupBackendPort(port, { delayMs = 800 } = {}) {
+  const pids = collectStaleBackendPids(port);
+  if (pids.size > 0) {
+    console.log(`[backend] cleaning port ${port}, PIDs: ${[...pids].join(', ')}`);
+    for (const pid of pids) {
+      killProcessTree(pid);
+    }
+  } else {
+    console.log(`[backend] port ${port}: no stale processes`);
+  }
+  if (delayMs > 0) {
+    return new Promise((resolve) => setTimeout(resolve, delayMs));
+  }
+  return Promise.resolve();
+}
+
+/** @deprecated 请使用 cleanupBackendPort */
+function killProcessOnPort(port) {
+  return cleanupBackendPort(port, { delayMs: 0 });
 }
 
 function waitForBackend(maxAttempts = 30, intervalMs = 500) {
@@ -233,15 +311,12 @@ function startBackendProcess() {
 }
 
 async function ensureBackendRunning() {
+  // P0：启动时先清理 8765 所有残留进程，再决定是否拉起新后端
+  await cleanupBackendPort(BACKEND_PORT);
+
   const healthy = await checkBackendHealth();
   const hasRequiredFeatures = healthy && await checkBackendHasRequiredFeatures();
-
-  // 旧后端进程缺少新 API 时（404 根因），或开发模式需热重载，先清理再启动
-  if (healthy && (isDev || !hasRequiredFeatures)) {
-    console.log(t('backend_restarting_stale', { url: BACKEND_URL }) || `Restarting stale backend at ${BACKEND_URL}`);
-    killProcessOnPort(BACKEND_PORT);
-    await new Promise((r) => setTimeout(r, 800));
-  } else if (healthy) {
+  if (healthy && hasRequiredFeatures) {
     console.log(t('backend_already_running', { url: BACKEND_URL }));
     return;
   }
@@ -252,25 +327,21 @@ async function ensureBackendRunning() {
 }
 
 function stopBackendProcess() {
-  if (!backendStartedByApp) {
-    return;
-  }
-  if (!pythonProcess || pythonProcess.killed) {
-    pythonProcess = null;
-    backendStartedByApp = false;
-    return;
-  }
-  const pid = pythonProcess.pid;
-  if (process.platform === 'win32') {
-    spawn('taskkill', ['/pid', String(pid), '/f', '/t'], {
-      windowsHide: true,
-      stdio: 'ignore',
-    });
-  } else {
-    pythonProcess.kill('SIGTERM');
+  if (pythonProcess && !pythonProcess.killed) {
+    const pid = pythonProcess.pid;
+    if (process.platform === 'win32') {
+      spawn('taskkill', ['/pid', String(pid), '/f', '/t'], {
+        windowsHide: true,
+        stdio: 'ignore',
+      });
+    } else {
+      pythonProcess.kill('SIGTERM');
+    }
   }
   pythonProcess = null;
   backendStartedByApp = false;
+  // P0：退出时清理端口残留（含孤儿子进程）
+  cleanupBackendPort(BACKEND_PORT, { delayMs: 0 });
 }
 
 function createMainWindow() {
