@@ -14,5 +14,5 @@ if not exist "venv\Scripts\python.exe" (
   exit /b 1
 )
 
-call npm run dev
+wscript.exe "%~dp0scripts\launch-hidden.vbs"
 exit /b 0

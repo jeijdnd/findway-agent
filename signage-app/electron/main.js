@@ -11,16 +11,21 @@ const { t } = require('./i18n');
 
 const FAVICON_PATH = path.join(__dirname, '..', 'frontend', 'public', 'favicon.ico');
 
-/** 返回可用的托盘/窗口图标；文件不存在时返回 null */
+/** 返回可用的托盘/窗口图标；优先 favicon，否则回退到 Electron 应用图标 */
 function resolveAppIcon() {
-  if (!fs.existsSync(FAVICON_PATH)) {
-    return null;
+  if (fs.existsSync(FAVICON_PATH)) {
+    try {
+      const image = nativeImage.createFromPath(FAVICON_PATH);
+      if (!image.isEmpty()) return image;
+    } catch (err) {
+      console.warn('Failed to load favicon:', err.message);
+    }
   }
   try {
-    const image = nativeImage.createFromPath(FAVICON_PATH);
+    const image = nativeImage.createFromPath(process.execPath);
     return image.isEmpty() ? null : image;
   } catch (err) {
-    console.warn('Failed to load favicon:', err.message);
+    console.warn('Failed to load fallback icon:', err.message);
     return null;
   }
 }
@@ -444,7 +449,7 @@ function createTray() {
   try {
     const trayIcon = resolveAppIcon();
     if (!trayIcon) {
-      console.warn('favicon.ico not found, system tray disabled');
+      console.warn('No tray icon available, system tray disabled');
       return;
     }
 
@@ -503,9 +508,19 @@ function setupIPC() {
   });
 
   ipcMain.on('window-close', () => {
-    if (mainWindow) {
-      mainWindow.close();
+    if (!mainWindow) return;
+    if (!isQuitting && tray) {
+      mainWindow.hide();
+      const balloon = {
+        title: 'FindWay Agent',
+        content: '应用已最小化到系统托盘，右键点击托盘图标可退出。',
+      };
+      const balloonIcon = resolveAppIcon();
+      if (balloonIcon) balloon.icon = balloonIcon;
+      tray.displayBalloon(balloon);
+      return;
     }
+    mainWindow.close();
   });
 
   ipcMain.handle('get-app-version', () => {
@@ -584,6 +599,7 @@ app.on('before-quit', () => {
 });
 
 app.on('window-all-closed', () => {
+  if (isQuitting || tray) return;
   if (process.platform !== 'darwin') {
     app.quit();
   }

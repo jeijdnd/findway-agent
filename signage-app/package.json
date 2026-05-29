@@ -4,11 +4,12 @@
   "description": "FindWay Agent V2 - 建筑导视标识设计AI助手",
   "main": "electron/main.js",
   "scripts": {
-    "dev": "concurrently \"cd frontend && npm run dev\" \"wait-on http://localhost:5173 && electron .\"",
+    "dev": "node scripts/dev-launcher.js",
+    "dev:inner": "concurrently -k \"node scripts/start-vite.js\" \"wait-on http://localhost:5173 && node scripts/start-electron.js\"",
     "build": "npm run frontend-build && electron-builder",
     "frontend-build": "cd frontend && npm run build",
     "preview": "cd frontend && npm run preview",
-    "electron-start": "electron ."
+    "electron-start": "node scripts/start-electron.js"
   },
   "build": {
     "appId": "com.findway.agent",
