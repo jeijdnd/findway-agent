@@ -6,7 +6,7 @@ const { app, BrowserWindow, Tray, Menu, dialog, ipcMain, nativeImage, shell } = 
 const path = require('path');
 const fs = require('fs');
 const http = require('http');
-const { spawn } = require('child_process');
+const { spawn, execSync } = require('child_process');
 const { t } = require('./i18n');
 
 const FAVICON_PATH = path.join(__dirname, '..', 'frontend', 'public', 'favicon.ico');
@@ -80,8 +80,20 @@ function getPythonExecutable() {
 function checkBackendHealth() {
   return new Promise((resolve) => {
     const req = http.get(BACKEND_HEALTH_URL, (res) => {
-      res.resume();
-      resolve(res.statusCode === 200);
+      let data = '';
+      res.on('data', (chunk) => { data += chunk; });
+      res.on('end', () => {
+        if (res.statusCode !== 200) {
+          resolve(false);
+          return;
+        }
+        try {
+          const json = JSON.parse(data);
+          resolve(json.status === 'ok');
+        } catch {
+          resolve(false);
+        }
+      });
     });
     req.on('error', () => resolve(false));
     req.setTimeout(2000, () => {
@@ -89,6 +101,58 @@ function checkBackendHealth() {
       resolve(false);
     });
   });
+}
+
+/** 检查运行中的后端是否包含文件浏览器 API（scan-folder） */
+function checkBackendHasFileBrowser() {
+  return new Promise((resolve) => {
+    const req = http.get(BACKEND_HEALTH_URL, (res) => {
+      let data = '';
+      res.on('data', (chunk) => { data += chunk; });
+      res.on('end', () => {
+        try {
+          const json = JSON.parse(data);
+          resolve(Array.isArray(json.features) && json.features.includes('scan-folder'));
+        } catch {
+          resolve(false);
+        }
+      });
+    });
+    req.on('error', () => resolve(false));
+    req.setTimeout(2000, () => {
+      req.destroy();
+      resolve(false);
+    });
+  });
+}
+
+/** 终止占用指定端口的进程（开发模式清理旧后端） */
+function killProcessOnPort(port) {
+  try {
+    if (process.platform === 'win32') {
+      const out = execSync(`netstat -ano | findstr :${port} | findstr LISTENING`, {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+      });
+      const pids = new Set();
+      for (const line of out.split('\n')) {
+        const parts = line.trim().split(/\s+/);
+        const pid = parts[parts.length - 1];
+        if (pid && /^\d+$/.test(pid) && pid !== '0') {
+          pids.add(pid);
+        }
+      }
+      for (const pid of pids) {
+        try {
+          execSync(`taskkill /F /PID ${pid} /T`, { stdio: 'ignore' });
+        } catch {
+          // 进程可能已退出
+        }
+      }
+    }
+  } catch {
+    // 端口无监听进程
+  }
 }
 
 function waitForBackend(maxAttempts = 30, intervalMs = 500) {
@@ -122,6 +186,9 @@ function startBackendProcess() {
       '--port',
       String(BACKEND_PORT),
     ];
+    if (isDev) {
+      args.push('--reload');
+    }
 
     pythonProcess = spawn(python, args, {
       cwd: APP_ROOT,
@@ -158,10 +225,19 @@ function startBackendProcess() {
 }
 
 async function ensureBackendRunning() {
-  if (await checkBackendHealth()) {
+  const healthy = await checkBackendHealth();
+  const hasFileBrowser = healthy && await checkBackendHasFileBrowser();
+
+  // 旧后端进程缺少新 API 时（405 根因），或开发模式需热重载，先清理再启动
+  if (healthy && (isDev || !hasFileBrowser)) {
+    console.log(t('backend_restarting_stale', { url: BACKEND_URL }) || `Restarting stale backend at ${BACKEND_URL}`);
+    killProcessOnPort(BACKEND_PORT);
+    await new Promise((r) => setTimeout(r, 800));
+  } else if (healthy) {
     console.log(t('backend_already_running', { url: BACKEND_URL }));
     return;
   }
+
   console.log(t('backend_starting_uvicorn', { url: BACKEND_URL }));
   await startBackendProcess();
   console.log(t('backend_ready', { url: BACKEND_URL }));

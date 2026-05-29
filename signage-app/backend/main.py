@@ -89,8 +89,9 @@ async def health_check():
     """健康检查接口"""
     return {
         "status": "ok",
-        "version": "2.0.0",
-        "mode": "production" if is_production else "development"
+        "version": "2.0.1",
+        "mode": "production" if is_production else "development",
+        "features": ["scan-folder", "file-browser"],
     }
 
 
@@ -123,26 +124,28 @@ async def general_exception_handler(request: Request, exc: Exception):
         content={"error": True, "message": f"服务器内部错误: {str(exc)}"},
     )
 
-# 生产模式：添加静态文件服务
+# 生产模式：静态资源 + SPA 回退（middleware 方式，避免 GET 通配路由拦截 POST /api/* 导致 405）
 if is_production:
-    # 挂载静态文件目录
     app.mount("/assets", StaticFiles(directory=frontend_dist / "assets"), name="static")
-    
-    # SPA路由：所有非API请求都返回index.html
-    @app.get("/{full_path:path}")
-    async def serve_spa(full_path: str):
-        """SPA路由处理"""
-        # 如果是API路径，不处理
-        if full_path.startswith("api/"):
-            raise HTTPException(status_code=404, detail="API endpoint not found")
-        
-        # 尝试返回请求的文件
-        file_path = frontend_dist / full_path
-        if file_path.is_file():
-            return FileResponse(file_path)
-        
-        # 否则返回index.html（SPA路由）
-        return FileResponse(frontend_dist / "index.html")
+
+    @app.middleware("http")
+    async def spa_fallback(request: Request, call_next):
+        response = await call_next(request)
+        path = request.url.path
+        if (
+            request.method in ("GET", "HEAD")
+            and response.status_code == 404
+            and not path.startswith("/api")
+            and not path.startswith("/assets")
+            and not path.startswith("/docs")
+            and not path.startswith("/openapi")
+        ):
+            relative = path.lstrip("/")
+            file_path = frontend_dist / relative
+            if relative and file_path.is_file():
+                return FileResponse(file_path)
+            return FileResponse(frontend_dist / "index.html")
+        return response
 
 if __name__ == "__main__":
     # 从环境变量读取端口，默认8765
