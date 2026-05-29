@@ -3,6 +3,9 @@
  * 新增仪表盘功能时须在此同步添加命令常量与处理逻辑
  */
 
+/** 与后端 app_data.DEFAULT_PROJECT_ROOT 保持一致 */
+export const DEFAULT_PROJECT_ROOT = 'E:\\MingRui\\__项目文件'
+
 export const DashboardCommandType = {
   NEW_PROJECT: 'new-project',
   FILTER: 'dashboard-filter',
@@ -54,6 +57,17 @@ export function findProjectById(projects, id) {
   return projects.find((p) => p.id === id)
 }
 
+export async function fetchProjectConfig() {
+  try {
+    const res = await fetch('/api/projects/config')
+    if (!res.ok) return DEFAULT_PROJECT_ROOT
+    const cfg = await res.json()
+    return cfg.default_project_path || DEFAULT_PROJECT_ROOT
+  } catch {
+    return DEFAULT_PROJECT_ROOT
+  }
+}
+
 export async function fetchAllProjects() {
   const res = await fetch('/api/projects')
   if (!res.ok) throw new Error(`加载项目失败: HTTP ${res.status}`)
@@ -68,7 +82,7 @@ export async function updateProjectStage(projectId, stage) {
   })
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
-    throw new Error(err.detail || '更新阶段失败')
+    throw new Error(err.detail || err.message || '更新阶段失败')
   }
   return res.json()
 }
@@ -77,7 +91,7 @@ export async function deleteProjectById(projectId) {
   const res = await fetch(`/api/projects/${projectId}`, { method: 'DELETE' })
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
-    throw new Error(err.detail || '删除项目失败')
+    throw new Error(err.detail || err.message || '删除项目失败')
   }
   return res.json()
 }
@@ -90,7 +104,7 @@ export async function importScannedFolders(folders) {
   })
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
-    throw new Error(err.detail || '导入失败')
+    throw new Error(err.detail || err.message || '导入失败')
   }
   return res.json()
 }

@@ -8,6 +8,8 @@ import {
   updateProjectStage,
   deleteProjectById,
   importScannedFolders,
+  fetchProjectConfig,
+  DEFAULT_PROJECT_ROOT,
 } from '../api/dashboardCommands'
 
 const STAGE_OPTIONS = [
@@ -582,18 +584,15 @@ function Dashboard({ commandTrigger }) {
   const fetchProjects = useCallback(async () => {
     try {
       setError(null)
-      const [projRes, cfgRes] = await Promise.all([
+      const [projRes, scanRoot] = await Promise.all([
         fetch('/api/projects'),
-        fetch('/api/projects/config'),
+        fetchProjectConfig(),
       ])
+      setDefaultPath(scanRoot)
       if (!projRes.ok) throw new Error(`加载项目失败: HTTP ${projRes.status}`)
       const data = await projRes.json()
       setGrouped(data.grouped || {})
       setAllProjects(data.projects || [])
-      if (cfgRes.ok) {
-        const cfg = await cfgRes.json()
-        setDefaultPath(cfg.default_project_path || '')
-      }
     } catch (err) {
       setError(err.message)
     } finally {
@@ -648,11 +647,7 @@ function Dashboard({ commandTrigger }) {
   }, [fetchProjects, selectedProject])
 
   const handleScanDirectory = useCallback(async () => {
-    const rootPath = defaultPath
-    if (!rootPath) {
-      setScanMessage('请先在设置中配置默认项目路径')
-      return
-    }
+    const rootPath = defaultPath || DEFAULT_PROJECT_ROOT
     setScanning(true)
     setScanMessage('')
     try {
@@ -668,7 +663,7 @@ function Dashboard({ commandTrigger }) {
       })
       if (!scanRes.ok) {
         const err = await scanRes.json().catch(() => ({}))
-        throw new Error(err.detail || '扫描失败')
+        throw new Error(err.detail || err.message || '扫描失败')
       }
       const scanData = await scanRes.json()
       const folders = scanData.folders || []
@@ -830,8 +825,8 @@ function Dashboard({ commandTrigger }) {
             type="button"
             className="btn-secondary"
             onClick={handleScanDirectory}
-            disabled={scanning || !defaultPath}
-            title={defaultPath ? `扫描 ${defaultPath}` : '请先在设置中配置项目路径'}
+            disabled={scanning}
+            title={`扫描 ${defaultPath || DEFAULT_PROJECT_ROOT}`}
           >
             {scanning ? '扫描中…' : '扫描目录'}
           </button>

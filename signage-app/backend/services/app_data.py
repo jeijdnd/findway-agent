@@ -42,6 +42,13 @@ def load_user_preferences() -> dict:
     return {"default_project_path": DEFAULT_PROJECT_ROOT}
 
 
+def get_default_project_path() -> str:
+    """返回有效的默认项目根目录（空值回退到内置默认）"""
+    prefs = load_user_preferences()
+    path = (prefs.get("default_project_path") or "").strip()
+    return path or DEFAULT_PROJECT_ROOT
+
+
 def save_user_preferences(prefs: dict):
     path = get_user_preferences_path()
     os.makedirs(os.path.dirname(path), exist_ok=True)

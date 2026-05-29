@@ -14,6 +14,7 @@ from backend.services.app_data import (
     get_projects_index_path,
     load_user_preferences,
     save_user_preferences,
+    get_default_project_path,
     DEFAULT_PROJECT_ROOT,
 )
 
@@ -148,8 +149,7 @@ def save_projects(projects: List[dict]):
 def _resolve_project_path(name: str, custom_path: str = "") -> str:
     if custom_path.strip():
         return os.path.normpath(custom_path.strip())
-    prefs = load_user_preferences()
-    root = prefs.get("default_project_path", DEFAULT_PROJECT_ROOT)
+    root = get_default_project_path()
     return os.path.normpath(os.path.join(root, name))
 
 
@@ -168,10 +168,7 @@ async def get_stages():
 @router.get("/api/projects/config")
 async def get_project_config():
     """获取项目默认路径配置"""
-    prefs = load_user_preferences()
-    return {
-        "default_project_path": prefs.get("default_project_path", DEFAULT_PROJECT_ROOT),
-    }
+    return {"default_project_path": get_default_project_path()}
 
 
 @router.put("/api/projects/config")
@@ -240,59 +237,6 @@ async def create_project(project: ProjectCreate):
     return new_project
 
 
-@router.get("/api/projects/{project_id}")
-async def get_project(project_id: str):
-    """获取单个项目详情"""
-    projects = load_projects()
-    for p in projects:
-        if p["id"] == project_id:
-            return p
-    raise HTTPException(status_code=404, detail="项目不存在")
-
-
-@router.put("/api/projects/{project_id}")
-async def update_project(project_id: str, update: ProjectUpdate):
-    """更新项目信息"""
-    projects = load_projects()
-    for i, p in enumerate(projects):
-        if p["id"] == project_id:
-            data = update.dict(exclude_unset=True)
-            if "stage" in data and data["stage"] and data["stage"] not in STAGES:
-                raise HTTPException(status_code=400, detail=f"无效阶段: {data['stage']}")
-            if "files" in data:
-                data["files"] = [f if isinstance(f, dict) else f.dict() for f in data["files"]]
-            data["updated_at"] = datetime.now().isoformat()
-            projects[i].update(data)
-            save_projects(projects)
-            return projects[i]
-    raise HTTPException(status_code=404, detail="项目不存在")
-
-
-@router.post("/api/projects/{project_id}/files")
-async def add_project_files(project_id: str, body: ProjectFilesAdd):
-    """向项目添加文件记录（拖放上传）"""
-    projects = load_projects()
-    for i, p in enumerate(projects):
-        if p["id"] == project_id:
-            today = datetime.now().strftime("%Y-%m-%d")
-            new_files = []
-            for f in body.files:
-                entry = f.dict() if hasattr(f, "dict") else f
-                if not entry.get("uploaded"):
-                    entry["uploaded"] = today
-                new_files.append(entry)
-            existing_names = {f["name"] for f in p.get("files", [])}
-            for f in new_files:
-                if f["name"] not in existing_names:
-                    p.setdefault("files", []).append(f)
-                    existing_names.add(f["name"])
-            p["updated_at"] = datetime.now().isoformat()
-            projects[i] = p
-            save_projects(projects)
-            return p
-    raise HTTPException(status_code=404, detail="项目不存在")
-
-
 @router.get("/api/projects/search")
 async def search_projects(
     name: Optional[str] = None,
@@ -350,6 +294,59 @@ async def import_from_scan(body: ImportScanRequest):
     if added:
         save_projects(projects)
     return {"added": len(added), "skipped": skipped, "projects": added}
+
+
+@router.get("/api/projects/{project_id}")
+async def get_project(project_id: str):
+    """获取单个项目详情"""
+    projects = load_projects()
+    for p in projects:
+        if p["id"] == project_id:
+            return p
+    raise HTTPException(status_code=404, detail="项目不存在")
+
+
+@router.put("/api/projects/{project_id}")
+async def update_project(project_id: str, update: ProjectUpdate):
+    """更新项目信息"""
+    projects = load_projects()
+    for i, p in enumerate(projects):
+        if p["id"] == project_id:
+            data = update.dict(exclude_unset=True)
+            if "stage" in data and data["stage"] and data["stage"] not in STAGES:
+                raise HTTPException(status_code=400, detail=f"无效阶段: {data['stage']}")
+            if "files" in data:
+                data["files"] = [f if isinstance(f, dict) else f.dict() for f in data["files"]]
+            data["updated_at"] = datetime.now().isoformat()
+            projects[i].update(data)
+            save_projects(projects)
+            return projects[i]
+    raise HTTPException(status_code=404, detail="项目不存在")
+
+
+@router.post("/api/projects/{project_id}/files")
+async def add_project_files(project_id: str, body: ProjectFilesAdd):
+    """向项目添加文件记录（拖放上传）"""
+    projects = load_projects()
+    for i, p in enumerate(projects):
+        if p["id"] == project_id:
+            today = datetime.now().strftime("%Y-%m-%d")
+            new_files = []
+            for f in body.files:
+                entry = f.dict() if hasattr(f, "dict") else f
+                if not entry.get("uploaded"):
+                    entry["uploaded"] = today
+                new_files.append(entry)
+            existing_names = {f["name"] for f in p.get("files", [])}
+            for f in new_files:
+                if f["name"] not in existing_names:
+                    p.setdefault("files", []).append(f)
+                    existing_names.add(f["name"])
+            p["updated_at"] = datetime.now().isoformat()
+            projects[i] = p
+            save_projects(projects)
+            return p
+    raise HTTPException(status_code=404, detail="项目不存在")
 
 
 @router.delete("/api/projects/{project_id}")
