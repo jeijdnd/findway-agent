@@ -1,6 +1,7 @@
-import React, { useState, useCallback } from 'react'
+import React from 'react'
 import { useColumnResize } from '../hooks/useColumnResize'
 import RightPanel from '../components/RightPanel'
+import { TOOLBAR_WIDTH } from '../components/RightToolbar'
 
 function ResizeHandle({ onMouseDown, className = '' }) {
   return (
@@ -18,35 +19,15 @@ function WorkBuddyLayout({
   leftSidebar,
   centerChat,
   mainContent,
-  renderRightToolbar,
   renderSlidePanel,
   viewMode,
-  onPanelOpen,
+  activePanel,
+  onPanelClose,
 }) {
   const left = useColumnResize('layout-left-width', 260, 200, 400)
-  const right = useColumnResize('layout-right-width', 180, 150, 300)
-
-  const [activePanel, setActivePanel] = useState(null)
-
-  const handleSlideSelect = useCallback(
-    (panelId) => {
-      setActivePanel((prev) => {
-        const next = prev === panelId ? null : panelId
-        if (next && onPanelOpen) {
-          onPanelOpen(next)
-        }
-        return next
-      })
-    },
-    [onPanelOpen]
-  )
-
-  const handleClose = useCallback(() => {
-    setActivePanel(null)
-  }, [])
 
   return (
-    <div className="workbuddy-layout">
+    <div className="workbuddy-layout" style={{ paddingRight: TOOLBAR_WIDTH }}>
       <div className="workbuddy-columns">
         <div className="workbuddy-col-left" style={{ width: left.width, flexShrink: 0 }}>
           {leftSidebar}
@@ -55,14 +36,9 @@ function WorkBuddyLayout({
 
         <div className="workbuddy-col-center">
           {viewMode === 'chat' ? centerChat : mainContent}
-          <RightPanel open={!!activePanel} panelId={activePanel} onClose={handleClose}>
+          <RightPanel open={!!activePanel} panelId={activePanel} onClose={onPanelClose}>
             {activePanel && renderSlidePanel ? renderSlidePanel(activePanel) : null}
           </RightPanel>
-        </div>
-
-        <ResizeHandle onMouseDown={right.startDragReverse} />
-        <div className="workbuddy-col-right" style={{ width: right.width, flexShrink: 0 }}>
-          {renderRightToolbar ? renderRightToolbar(handleSlideSelect) : null}
         </div>
       </div>
     </div>

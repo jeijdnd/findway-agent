@@ -211,6 +211,7 @@ function AppLayout() {
   const [skillInvokeSignal, setSkillInvokeSignal] = useState({ nonce: 0 })
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
   const [commandTrigger, setCommandTrigger] = useState({ type: null, nonce: 0 })
+  const [activePanel, setActivePanel] = useState(null)
 
   const fetchChatHistoryList = useCallback(async () => {
     try {
@@ -325,7 +326,7 @@ function AppLayout() {
     }
   }
 
-  const handleSidebarPanelOpen = (panelId) => {
+  const handleSidebarPanelOpen = useCallback((panelId) => {
     setViewMode('tool')
     const tabMap = {
       compare: 'compare',
@@ -338,7 +339,22 @@ function AppLayout() {
       'new-project': 'dashboard',
     }
     if (tabMap[panelId]) setActiveTab(tabMap[panelId])
-  }
+  }, [])
+
+  const handleSlidePanel = useCallback(
+    (panelId) => {
+      setActivePanel((prev) => {
+        const next = prev === panelId ? null : panelId
+        if (next) handleSidebarPanelOpen(next)
+        return next
+      })
+    },
+    [handleSidebarPanelOpen]
+  )
+
+  const handleClosePanel = useCallback(() => {
+    setActivePanel(null)
+  }, [])
 
   const handleDeleteChat = async (e, id) => {
     e.stopPropagation()
@@ -457,17 +473,16 @@ function AppLayout() {
           />
         }
         mainContent={mainPanel}
-        renderRightToolbar={(onSlidePanel) => (
-          <RightToolbar
-            activeTab={activeTab}
-            viewMode={viewMode}
-            onSelect={handleToolbarSelect}
-            onSlidePanel={onSlidePanel}
-          />
-        )}
         renderSlidePanel={renderSlidePanel}
         viewMode={viewMode}
-        onPanelOpen={handleSidebarPanelOpen}
+        activePanel={activePanel}
+        onPanelClose={handleClosePanel}
+      />
+      <RightToolbar
+        activeTab={activeTab}
+        viewMode={viewMode}
+        onSelect={handleToolbarSelect}
+        onSlidePanel={handleSlidePanel}
       />
       <CommandPalette
         open={commandPaletteOpen}
